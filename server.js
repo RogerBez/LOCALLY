@@ -2,7 +2,7 @@
 require('dotenv').config();
 
 // Get API key from environment variables
-const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
 console.log('API Key:', apiKey);
 
 // Import required modules

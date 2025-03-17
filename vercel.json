@@ -28,6 +28,6 @@
     }
   ],
   "env": {
-    "REACT_APP_GOOGLE_MAPS_API_KEY": "@react_app_google_maps_api_key"
+    "GOOGLE_MAPS_API_KEY": "@google_maps_api_key"
   }
 }
