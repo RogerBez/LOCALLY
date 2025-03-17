@@ -1,26 +1,42 @@
-require('dotenv').config();  // Ensure dotenv is loaded first
-console.log('dotenv loaded:', require('dotenv').config());  // Debugging line (optional)
+// Load environment variables (with error handling)
+try {
+  require('dotenv').config();
+  console.log('dotenv loaded:', { parsed: process.env.GOOGLE_MAPS_API_KEY ? 'API key found' : 'API key not found' });
+} catch (error) {
+  console.log('dotenv loaded: Error loading .env file, using environment variables');
+}
 
-const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY; // Update the variable name
-console.log('API Key:', apiKey);  // This should log the key if it's loaded correctly
+// Get API key from environment variables
+const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+console.log('API Key:', apiKey ? 'API key found' : 'API key not found');
 
+// Import required modules
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const path = require('path');
 
+// Create Express app
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
-app.use(cors());  // Allow requests from any origin during development
+// Middleware
+app.use(cors());
 app.use(express.json());
 
+// Root endpoint
 app.get('/', (req, res) => {
-  res.send('Server is running!');
+  res.send('LOCALLY API is running!');
 });
 
+// Query endpoint
 app.post('/query', async (req, res) => {
   const userQuery = req.body.query;
   console.log('User query received:', userQuery);
+
+  if (!apiKey) {
+    return res.status(500).json({ message: 'API key not configured. Please set the GOOGLE_MAPS_API_KEY environment variable.' });
+  }
 
   try {
     const response = await axios.get('https://maps.googleapis.com/maps/api/place/textsearch/json', {
@@ -30,9 +46,7 @@ app.post('/query', async (req, res) => {
       },
     });
 
-    // Log the full response for debugging
-    console.log('Full Google Places Response:', response.data);
-
+    // Process the response
     const businesses = response.data.results.map(biz => {
       // Get photo URL if available
       let photoUrl = null;
@@ -61,9 +75,13 @@ app.post('/query', async (req, res) => {
   }
 });
 
-// Add a route to get images for a specific place
+// Images endpoint
 app.get('/images/:placeId', async (req, res) => {
   const { placeId } = req.params;
+  
+  if (!apiKey) {
+    return res.status(500).json({ message: 'API key not configured. Please set the GOOGLE_MAPS_API_KEY environment variable.' });
+  }
   
   try {
     const response = await axios.get('https://maps.googleapis.com/maps/api/place/details/json', {
@@ -88,6 +106,17 @@ app.get('/images/:placeId', async (req, res) => {
   }
 });
 
+// Serve static files from the React app in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'client/build')));
+  
+  // Handle any requests that don't match the ones above
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+  });
+}
+
+// Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
