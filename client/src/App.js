@@ -186,6 +186,17 @@ function App() {
     }
   };
 
+  // Function to get more images for a business
+  const getMoreImages = async (placeId) => {
+    try {
+      const res = await axios.get(`${API_URL}/api/images/${placeId}`);
+      return res.data.photoUrls;
+    } catch (error) {
+      console.error("Error fetching images:", error);
+      return [];
+    }
+  };
+
   // Typing indicator component
   const TypingIndicator = () => (
     <div 
