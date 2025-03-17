@@ -15,8 +15,12 @@
   ],
   "routes": [
     {
+      "src": "/api/images/(.*)",
+      "dest": "/api/images/[placeId].js?placeId=$1"
+    },
+    {
       "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "dest": "/api/$1.js"
     },
     {
       "src": "/(.*)",
@@ -24,7 +28,6 @@
     }
   ],
   "env": {
-    "REACT_APP_GOOGLE_MAPS_API_KEY": "@react_app_google_maps_api_key",
-    "REACT_APP_API_URL": "@react_app_api_url"
+    "REACT_APP_GOOGLE_MAPS_API_KEY": "@react_app_google_maps_api_key"
   }
 }

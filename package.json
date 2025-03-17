@@ -1,9 +1,12 @@
 {
   "name": "local-service-agent",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "build": "cd client && npm install && npm run build",
+    "vercel-build": "echo 'Vercel build step'",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -16,5 +19,11 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "react-icons": "^5.4.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
