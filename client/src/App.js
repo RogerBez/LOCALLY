@@ -102,7 +102,7 @@ function App() {
   useEffect(() => {
     // Only try to fetch businesses if we have a valid API URL
     if (API_URL) {
-      console.log("Fetching businesses from:", `${API_URL}/query`);
+      console.log("Fetching businesses from:", `${API_URL}/api/query`);
       // Set a conversational welcome message
       setMessages([{ 
         sender: "agent", 
@@ -130,7 +130,8 @@ function App() {
 
     try {
       // Make API request to search for businesses
-      const res = await axios.post(`${API_URL}/query`, {
+      // Update the endpoint to use /api/query instead of /query
+      const res = await axios.post(`${API_URL}/api/query`, {
         query: userInput,
         latitude: location.latitude,
         longitude: location.longitude
