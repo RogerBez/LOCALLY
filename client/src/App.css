@@ -1,0 +1,157 @@
+/* General styles */
+body {
+  font-family: 'Arial', sans-serif;
+  background-color: #f4f6f9;
+  color: #333;
+  margin: 0;
+  padding: 0;
+}
+
+/* App container */
+.App {
+  max-width: 900px;
+  margin: 20px auto;
+  padding: 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+/* Header */
+.header {
+  font-size: 26px;
+  font-weight: bold;
+  color: #2c3e50;
+  padding: 20px;
+  background-color: #3498db;
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+/* Chat window */
+.chat-window {
+  height: 180px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 20px;
+  background: #fff;
+}
+
+/* Chat messages */
+.message {
+  padding: 10px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  max-width: 75%;
+}
+.message.agent {
+  background-color: #3498db;
+  color: white;
+  text-align: left;
+}
+.message.user {
+  background-color: #2ecc71;
+  color: white;
+  text-align: right;
+}
+
+/* Search input and button */
+form {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+input[type="text"] {
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 16px;
+  width: 60%;
+}
+
+button {
+  padding: 12px 20px;
+  background-color: #e67e22;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.3s ease;
+}
+button:hover {
+  background-color: #d35400;
+}
+
+/* Sort dropdown */
+.sort-options {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+/* Business list and cards */
+.business-list {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.business-card {
+  width: 280px;
+  border: 1px solid #ddd;
+  padding: 15px;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease-in-out;
+  text-align: left;
+}
+
+.business-card:hover {
+  transform: scale(1.05);
+}
+
+.business-card h2 {
+  font-size: 18px;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.business-card p {
+  font-size: 14px;
+  margin: 5px 0;
+  color: #555;
+}
+
+.business-card a {
+  display: inline-block;
+  margin-top: 8px;
+  color: #3498db;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+/* Directions button */
+.directions-button {
+  background-color: #27ae60;
+  color: white !important; /* Forces text color */
+  padding: 10px 14px;
+  border-radius: 6px;
+  text-decoration: none;
+  margin-top: 10px;
+  font-size: 14px;
+  transition: background 0.3s ease;
+}
+
+.directions-button:hover {
+  background-color: #219150;
+}
