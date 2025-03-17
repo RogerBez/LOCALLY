@@ -102,7 +102,7 @@ function App() {
   useEffect(() => {
     // Only try to fetch businesses if we have a valid API URL
     if (API_URL) {
-      console.log("Fetching businesses from:", `${API_URL}/api/query`);
+      console.log("Fetching businesses from:", `${API_URL}/query`);
       // Set a conversational welcome message
       setMessages([{ 
         sender: "agent", 
@@ -130,8 +130,7 @@ function App() {
 
     try {
       // Make API request to search for businesses
-      // Update the endpoint to use /api/query instead of /query
-      const res = await axios.post(`${API_URL}/api/query`, {
+      const res = await axios.post(`${API_URL}/query`, {
         query: userInput,
         latitude: location.latitude,
         longitude: location.longitude
@@ -189,7 +188,7 @@ function App() {
   // Function to get more images for a business
   const getMoreImages = async (placeId) => {
     try {
-      const res = await axios.get(`${API_URL}/api/images/${placeId}`);
+      const res = await axios.get(`${API_URL}/images/${placeId}`);
       return res.data.photoUrls;
     } catch (error) {
       console.error("Error fetching images:", error);

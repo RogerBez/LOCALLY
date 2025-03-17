@@ -1,24 +1,31 @@
-require('dotenv').config();  // Ensure dotenv is loaded first
-console.log('dotenv loaded:', require('dotenv').config());  // Debugging line (optional)
+// Load environment variables
+require('dotenv').config();
 
-const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY; // Update the variable name
-console.log('API Key:', apiKey);  // This should log the key if it's loaded correctly
+// Get API key from environment variables
+const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+console.log('API Key:', apiKey);
 
+// Import required modules
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const path = require('path');
 
+// Create Express app
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());  // Allow requests from any origin during development
+// Middleware
+app.use(cors());
 app.use(express.json());
 
+// Root endpoint
 app.get('/', (req, res) => {
-  res.send('Server is running!');
+  res.send('LOCALLY API is running!');
 });
 
-app.post('/api/query', async (req, res) => {
+// Query endpoint
+app.post('/query', async (req, res) => {
   const userQuery = req.body.query;
   console.log('User query received:', userQuery);
 
@@ -30,9 +37,7 @@ app.post('/api/query', async (req, res) => {
       },
     });
 
-    // Log the full response for debugging
-    console.log('Full Google Places Response:', response.data);
-
+    // Process the response
     const businesses = response.data.results.map(biz => {
       // Get photo URL if available
       let photoUrl = null;
@@ -61,8 +66,8 @@ app.post('/api/query', async (req, res) => {
   }
 });
 
-// Add a route to get images for a specific place
-app.get('/api/images/:placeId', async (req, res) => {
+// Images endpoint
+app.get('/images/:placeId', async (req, res) => {
   const { placeId } = req.params;
   
   try {
@@ -90,7 +95,6 @@ app.get('/api/images/:placeId', async (req, res) => {
 
 // Serve static files from the React app in production
 if (process.env.NODE_ENV === 'production') {
-  const path = require('path');
   app.use(express.static(path.join(__dirname, 'client/build')));
   
   // Handle any requests that don't match the ones above
@@ -99,6 +103,12 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+// Start the server if not in Vercel environment
+if (process.env.VERCEL_ENV === undefined) {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}
+
+// Export the Express app for Vercel
+module.exports = app;
