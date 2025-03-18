@@ -2,14 +2,20 @@
   "version": 2,
   "builds": [
     {
-      "src": "build/**/*",
-      "use": "@vercel/static"
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": { 
+        "distDir": "build"
+      }
     }
   ],
-  "routes": [
-    { 
-      "src": "/(.*)", 
-      "dest": "/index.html" 
+  "rewrites": [
+    {
+      "source": "/api/:match*",
+      "destination": "https://locally-server.onrender.com/:match*"
     }
-  ]
+  ],
+  "env": {
+    "REACT_APP_API_URL": "https://locally-server.onrender.com"
+  }
 }

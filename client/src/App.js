@@ -6,7 +6,7 @@ import './App.css';
 // Update the API_URL definition
 const API_URL = process.env.REACT_APP_API_URL || 
   (process.env.NODE_ENV === 'production' 
-    ? 'https://locally.onrender.com'  // Replace with your Render API URL
+    ? '/api'  // Use relative path in production
     : 'http://localhost:5000');
 console.log("Backend URL:", API_URL);
 
@@ -117,10 +117,13 @@ function App() {
     }
   }, []);
 
-  // Scroll to bottom when messages update
+  // Enhanced scroll behavior
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const chatWindow = document.querySelector('.chat-window');
+    if (chatWindow) {
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+  }, [messages, isTyping]); // Scroll on new messages or typing indicator changes
 
   // Update axios request with proper headers
   const handleUserResponse = async (userInput) => {
@@ -332,103 +335,81 @@ function App() {
     </div>
   );
 
-  // Business details modal component
-  const BusinessModal = ({ business }) => {
-    // Get coordinates and API key
-    const lat = business.geometry?.location?.lat;
-    const lng = business.geometry?.location?.lng;
-    const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+  // Business card component - Keep it simple
+  const BusinessCard = ({ business, onReadMore }) => (
+    <div className="business-card">
+      <div className="business-image">
+        {business.photos && business.photos[0] && (
+          <img
+            src={business.photos[0].url}
+            alt={business.name}
+            onError={(e) => {
+              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzY2NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlIEF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
+            }}
+          />
+        )}
+      </div>
+      <div className="business-info">
+        <h2>{business.name}</h2>
+        {business.rating && (
+          <div className="business-rating">
+            <span className="stars">{'★'.repeat(Math.round(business.rating))}</span>
+            <span className="rating-count">({business.user_ratings_total} reviews)</span>
+          </div>
+        )}
+        <button className="directions-button" onClick={() => onReadMore(business)}>
+          Read More
+        </button>
+      </div>
+    </div>
+  );
 
-    // Debug logs with more detail
-    console.log('🗺️ Map Debug:', {
-      lat,
-      lng,
-      hasApiKey: !!apiKey,
-      keyPrefix: apiKey ? apiKey.substring(0, 6) : 'missing',
-      fullUrl: lat && lng ? `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x300&scale=2&markers=color:red%7C${lat},${lng}` : 'No URL constructed'
-    });
-
-    // Default map image (base64 encoded gray background with text)
-    const fallbackMapImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzY2NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk1hcCBVbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
-
-    // Construct map URL with error checking
-    const mapUrl = lat && lng && apiKey
-      ? `https://maps.googleapis.com/maps/api/staticmap?`
-        + `center=${lat},${lng}&`
-        + `zoom=15&`
-        + `size=600x300&`
-        + `scale=2&`
-        + `markers=color:red%7C${lat},${lng}&`
-        + `key=${apiKey}`
-      : null;
-
-    return (
-      <div className="modal-overlay" onClick={closeBusinessDetails}>
-        <div className="modal-content" onClick={e => e.stopPropagation()}>
-          <button className="modal-close" onClick={closeBusinessDetails}>×</button>
-          <div className="business-details">
-            <div className="detail-section">
-              <h2>{business.name}</h2>
-              {business.photos && business.photos[0] && (
-                <img src={business.photos[0].url} alt={business.name} />
-              )}
-              {business.rating && (
-                <div className="business-rating">
-                  <span className="stars">{'★'.repeat(Math.round(business.rating))}</span>
-                  <span className="rating-count">
-                    ({business.user_ratings_total || 'No'} reviews)
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="detail-section">
-              <h3>Location & Details</h3>
-              <div className="map-container">
-                {mapUrl ? (
-                  <img 
-                    src={mapUrl}
-                    alt="Business location"
-                    className="location-map"
-                    onError={(e) => {
-                      console.error('❌ Map load error:', e);
-                      e.target.src = fallbackMapImage;
-                      e.target.alt = 'Map unavailable';
-                    }}
-                  />
-                ) : (
-                  <div className="map-fallback">
-                    <img 
-                      src={fallbackMapImage}
-                      alt="Map unavailable"
-                      className="location-map"
-                    />
-                    <p className="map-error-text">
-                      {!apiKey ? 'API key missing' : !lat || !lng ? 'No location data' : 'Unable to load map'}
-                    </p>
-                  </div>
+  // Business modal - Show all available details
+  const BusinessModal = ({ business, onClose }) => (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose}>×</button>
+        <div className="business-details">
+          <div className="detail-section">
+            <h2>{business.name}</h2>
+            {business.photos?.[0] && (
+              <img src={business.photos[0].url} alt={business.name} />
+            )}
+            {business.rating && (
+              <div className="business-rating">
+                <span className="stars">{'★'.repeat(Math.round(business.rating))}</span>
+                <span className="rating-count">({business.user_ratings_total} reviews)</span>
+                {business.price_level && (
+                  <span className="price-level">{'$'.repeat(business.price_level)}</span>
                 )}
               </div>
-              <p><strong>Address:</strong> {business.vicinity}</p>
-              {business.opening_hours && (
-                <p><strong>Status:</strong> {business.opening_hours.open_now ? '✅ Open now' : '❌ Closed'}</p>
-              )}
-              {business.types && (
-                <p><strong>Type:</strong> {business.types.map(t => t.replace(/_/g, ' ')).join(', ')}</p>
-              )}
-              <div className="action-buttons">
-                <button 
-                  className="directions-button"
-                  onClick={() => openDirections(business)}
-                >
-                  Get Directions
-                </button>
-              </div>
+            )}
+          </div>
+          <div className="detail-section">
+            <h3>Business Details</h3>
+            <p><strong>Address:</strong> {business.formatted_address || business.vicinity}</p>
+            {business.business_status && (
+              <p><strong>Status:</strong> {business.business_status.replace(/_/g, ' ')}</p>
+            )}
+            {business.opening_hours && (
+              <p><strong>Hours:</strong> {business.opening_hours.open_now ? '✅ Open now' : '❌ Closed'}</p>
+            )}
+            {business.types && (
+              <p><strong>Categories:</strong> {business.types.map(t => t.replace(/_/g, ' ')).join(', ')}</p>
+            )}
+            <div className="action-buttons">
+              <button 
+                className="directions-button"
+                onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(business.name)}&query_place_id=${business.place_id}`, '_blank')}
+              >
+                Open in Google Maps
+              </button>
             </div>
           </div>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
 
   return (
     <div className="App">
@@ -443,7 +424,6 @@ function App() {
           </div>
         ))}
         {isTyping && <TypingIndicator />}
-        <div ref={chatEndRef} />
       </div>
       
       <form onSubmit={(e) => { e.preventDefault(); handleUserResponse(query); }}>
@@ -473,54 +453,11 @@ function App() {
       
       <div className="business-list">
         {businesses.map((business) => (
-          <div key={business.place_id} className="business-card">
-            {business.photos && business.photos[0] && (
-              <div className="business-image">
-                <img
-                  src={business.photos[0].url || business.photos[0]}
-                  alt={business.name}
-                  onClick={() => getMoreImages(business.place_id)}
-                  style={{ cursor: 'pointer' }}
-                  onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/300x200?text=No+Image';
-                  }}
-                />
-              </div>
-            )}
-            <div className="business-info">
-              <h2>{business.name}</h2>
-              
-              {business.rating && (
-                <div className="business-rating">
-                  <span className="stars">{'★'.repeat(Math.round(business.rating))}</span>
-                  <span className="rating-count">
-                    ({business.user_ratings_total || 'No'} reviews)
-                  </span>
-                </div>
-              )}
-              
-              <p>{business.vicinity}</p>
-              
-              {business.opening_hours && (
-                <p>{business.opening_hours.open_now ? '✅ Open now' : '❌ Closed'}</p>
-              )}
-              
-              {business.types && business.types.length > 0 && (
-                <p>{business.types[0].replace(/_/g, ' ')}</p>
-              )}
-              
-              <button 
-                className="directions-button"
-                onClick={() => openBusinessDetails(business)}
-              >
-                Read More
-              </button>
-            </div>
-          </div>
+          <BusinessCard key={business.place_id} business={business} onReadMore={openBusinessDetails} />
         ))}
       </div>
 
-      {selectedBusiness && <BusinessModal business={selectedBusiness} />}
+      {selectedBusiness && <BusinessModal business={selectedBusiness} onClose={closeBusinessDetails} />}
     </div>
   );
 }

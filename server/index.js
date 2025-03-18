@@ -115,6 +115,45 @@ app.post('/query', async (req, res, next) => {
       }
     });
     
+    // Enhanced logging of first result to see all available fields
+    if (response.data.results?.[0]) {
+      console.log('\n📍 Available Business Data Fields:');
+      const sampleBusiness = response.data.results[0];
+      console.log(JSON.stringify({
+        // Basic info
+        name: sampleBusiness.name,
+        rating: sampleBusiness.rating,
+        user_ratings_total: sampleBusiness.user_ratings_total,
+        price_level: sampleBusiness.price_level,
+        
+        // Location
+        vicinity: sampleBusiness.vicinity,
+        formatted_address: sampleBusiness.formatted_address,
+        
+        // Status
+        business_status: sampleBusiness.business_status,
+        opening_hours: sampleBusiness.opening_hours,
+        
+        // Categories & Details
+        types: sampleBusiness.types,
+        icon: sampleBusiness.icon,
+        
+        // Photos
+        photos: sampleBusiness.photos?.length || 0,
+        
+        // Place details
+        place_id: sampleBusiness.place_id,
+        plus_code: sampleBusiness.plus_code,
+        
+        // Additional fields if any
+        ...Object.keys(sampleBusiness)
+          .filter(key => !['name', 'rating', 'user_ratings_total', 'price_level', 'vicinity', 
+                         'formatted_address', 'business_status', 'opening_hours', 'types', 
+                         'icon', 'photos', 'place_id', 'plus_code'].includes(key))
+          .reduce((obj, key) => ({ ...obj, [key]: typeof sampleBusiness[key] }), {})
+      }, null, 2));
+    }
+
     // Better error handling
     if (response.data.status === 'REQUEST_DENIED') {
       console.error('API Request Denied:', response.data.error_message);
@@ -131,23 +170,25 @@ app.post('/query', async (req, res, next) => {
     }
 
     const businesses = response.data.results.map(place => ({
+      // Essential data for business cards
       name: place.name,
-      address: place.formatted_address,
-      rating: place.rating || null,
-      user_ratings_total: place.user_ratings_total || 0,
+      vicinity: place.vicinity,
+      rating: place.rating,
+      user_ratings_total: place.user_ratings_total,
       photos: place.photos ? place.photos.map(photo => ({
         url: `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${process.env.GOOGLE_MAPS_API_KEY}`
       })) : [],
+      
+      // Additional data for modal
       place_id: place.place_id,
-      geometry: {
-        location: {
-          lat: place.geometry.location.lat,
-          lng: place.geometry.location.lng
-        }
-      },
-      types: place.types || [],
-      vicinity: place.vicinity || place.formatted_address,
-      opening_hours: place.opening_hours || null
+      types: place.types,
+      business_status: place.business_status,
+      opening_hours: place.opening_hours,
+      price_level: place.price_level,
+      formatted_address: place.formatted_address,
+      icon: place.icon,
+      icon_background_color: place.icon_background_color,
+      icon_mask_base_uri: place.icon_mask_base_uri
     }));
 
     // Log first business for debugging

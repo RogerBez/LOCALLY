@@ -67,6 +67,28 @@ body {
   margin: 10px 20px;
   background: var(--subtle-gradient);
   box-shadow: var(--soft-shadow);
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  position: relative;
+}
+
+/* Customize scrollbar */
+.chat-window::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-window::-webkit-scrollbar-track {
+  background: var(--platinum-gray);
+  border-radius: 4px;
+}
+
+.chat-window::-webkit-scrollbar-thumb {
+  background: var(--royal-navy);
+  border-radius: 4px;
+}
+
+.chat-window::-webkit-scrollbar-thumb:hover {
+  background: var(--regal-gold);
 }
 
 /* Messages */
@@ -359,10 +381,18 @@ button:hover {
   justify-content: center;
 }
 
+/* Remove map container styles */
+.map-container,
+.map-fallback,
+.map-error-text {
+  display: none;
+}
+
+/* Adjust modal layout for no map */
 .business-details {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 30px; /* Increased from 20px */
+  gap: 20px;
 }
 
 .business-details img {
@@ -378,37 +408,6 @@ button:hover {
 .detail-section h3 {
   color: var(--royal-navy);
   margin-bottom: 10px;
-}
-
-.map-container {
-  width: 100%;
-  margin: 15px 0;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: var(--soft-shadow);
-}
-
-.location-map {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-.map-fallback {
-  position: relative;
-  background: var(--platinum-gray);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.map-error-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: var(--onyx-gray);
-  text-align: center;
-  font-weight: 500;
 }
 
 .action-buttons {
