@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "server.js",
+      "src": "index.js",
       "use": "@vercel/node"
     },
     {
@@ -16,11 +16,11 @@
   "routes": [
     {
       "src": "/query",
-      "dest": "/server.js"
+      "dest": "/index.js"
     },
     {
       "src": "/images/(.*)",
-      "dest": "/server.js"
+      "dest": "/index.js"
     },
     {
       "src": "/(.*)",
@@ -28,6 +28,6 @@
     }
   ],
   "env": {
-    "GOOGLE_MAPS_API_KEY": "@google_maps_api_key"
+    "GOOGLE_MAPS_API_KEY": "AIzaSyCuNG7tLLBn97JBccV3HifTnCLFhQ0g8qw"
   }
 }

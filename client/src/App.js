@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import locallyBanner from './Assets/LOCALLY BANNER.jpg';
+import './App.css';
 
-// Define the API URL directly if environment variable is not loading
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+// Update the API_URL definition
+const API_URL = process.env.REACT_APP_API_URL || 
+  (process.env.NODE_ENV === 'production' 
+    ? 'https://locally.onrender.com'  // Replace with your Render API URL
+    : 'http://localhost:5000');
 console.log("Backend URL:", API_URL);
 
 // Helper function to calculate distance between two coordinates
@@ -12,7 +16,7 @@ const computeDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371; // Radius of Earth in km
 
   const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
+  const dLon = toRad(lon1 - lon2);
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
@@ -67,8 +71,10 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState(null);
-  const [sortOption, setSortOption] = useState("rating");
+  const [sortOption, setSortOption] = useState("relevance");
   const [isTyping, setIsTyping] = useState(false);
+  const chatEndRef = useRef(null);
+  const [selectedBusiness, setSelectedBusiness] = useState(null);
 
   // Get user's location on component mount
   useEffect(() => {
@@ -111,6 +117,12 @@ function App() {
     }
   }, []);
 
+  // Scroll to bottom when messages update
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Update axios request with proper headers
   const handleUserResponse = async (userInput) => {
     if (!userInput.trim()) return;
     
@@ -134,6 +146,10 @@ function App() {
         query: userInput,
         latitude: location.latitude,
         longitude: location.longitude
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
       let businessesWithDistance = res.data.businesses.map((biz) => ({
@@ -175,14 +191,65 @@ function App() {
     }
   };
 
+  const handleSort = (e) => {
+    const option = e.target.value;
+    setSortOption(option);
+    
+    let sortedData = [...businesses];
+    
+    switch(option) {
+      case 'rating':
+        sortedData.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        break;
+      case 'reviews':
+        sortedData.sort((a, b) => (b.user_ratings_total || 0) - (a.user_ratings_total || 0));
+        break;
+      case 'name':
+        sortedData.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      default: // Keep original order for 'relevance'
+        break;
+    }
+    
+    setBusinesses(sortedData);
+  };
+
   // Function to open Google Maps directions
   const openDirections = (business) => {
-    if (business.latitude && business.longitude) {
-      const url = `https://www.google.com/maps/dir/?api=1&destination=${business.latitude},${business.longitude}&destination_place_id=${business.place_id}`;
-      window.open(url, '_blank');
-    } else {
-      alert('Location information is not available for this business.');
+    // Debug location data
+    console.log('📍 Direction Request:', {
+      hasGeometry: !!business.geometry,
+      hasLocation: !!business.geometry?.location,
+      lat: business.geometry?.location?.lat,
+      lng: business.geometry?.location?.lng,
+      placeId: business.place_id
+    });
+
+    // Check for valid location data
+    if (!business.geometry?.location?.lat || !business.geometry?.location?.lng) {
+      // Show error in the modal instead of an alert
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'error-message';
+      errorDiv.textContent = 'Sorry, location information is not available for this business.';
+      
+      // Remove any existing error message
+      const existingError = document.querySelector('.error-message');
+      if (existingError) existingError.remove();
+      
+      // Add new error message before the action buttons
+      const actionButtons = document.querySelector('.action-buttons');
+      if (actionButtons) {
+        actionButtons.parentNode.insertBefore(errorDiv, actionButtons);
+        
+        // Auto-remove the error after 5 seconds
+        setTimeout(() => errorDiv.remove(), 5000);
+      }
+      return;
     }
+
+    // If we have valid location data, open directions in Google Maps
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${business.geometry.location.lat},${business.geometry.location.lng}&destination_place_id=${business.place_id}`;
+    window.open(url, '_blank');
   };
 
   // Function to get more images for a business
@@ -194,6 +261,15 @@ function App() {
       console.error("Error fetching images:", error);
       return [];
     }
+  };
+
+  // Add modal handlers
+  const openBusinessDetails = (business) => {
+    setSelectedBusiness(business);
+  };
+
+  const closeBusinessDetails = () => {
+    setSelectedBusiness(null);
   };
 
   // Typing indicator component
@@ -256,198 +332,195 @@ function App() {
     </div>
   );
 
-  return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-      {/* Header with Logo and Tagline */}
-      <div style={{ 
-        textAlign: 'center', 
-        marginBottom: '20px',
-        backgroundColor: '#4285F4',
-        padding: '0',
-        color: 'white'
-      }}>
-        {/* Image first */}
-        <img 
-          src={locallyBanner} 
-          alt="LOCALLY Banner" 
-          style={{ 
-            width: '100%', 
-            maxHeight: '200px', 
-            objectFit: 'cover'
-          }} 
-        />
-        
-        {/* Header and tagline after the image */}
-        <div style={{ padding: '20px' }}>
-          <h1 style={{ 
-            fontSize: '2.5rem', 
-            margin: '0',
-            fontWeight: 'bold',
-            letterSpacing: '2px'
-          }}>
-            LOCALLY
-          </h1>
-          <p style={{ 
-            fontSize: '1.2rem', 
-            margin: '5px 0 0 0',
-            fontStyle: 'italic'
-          }}>
-            Supporting business LOCALLY
-          </p>
+  // Business details modal component
+  const BusinessModal = ({ business }) => {
+    // Get coordinates and API key
+    const lat = business.geometry?.location?.lat;
+    const lng = business.geometry?.location?.lng;
+    const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+
+    // Debug logs with more detail
+    console.log('🗺️ Map Debug:', {
+      lat,
+      lng,
+      hasApiKey: !!apiKey,
+      keyPrefix: apiKey ? apiKey.substring(0, 6) : 'missing',
+      fullUrl: lat && lng ? `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x300&scale=2&markers=color:red%7C${lat},${lng}` : 'No URL constructed'
+    });
+
+    // Default map image (base64 encoded gray background with text)
+    const fallbackMapImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzY2NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk1hcCBVbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
+
+    // Construct map URL with error checking
+    const mapUrl = lat && lng && apiKey
+      ? `https://maps.googleapis.com/maps/api/staticmap?`
+        + `center=${lat},${lng}&`
+        + `zoom=15&`
+        + `size=600x300&`
+        + `scale=2&`
+        + `markers=color:red%7C${lat},${lng}&`
+        + `key=${apiKey}`
+      : null;
+
+    return (
+      <div className="modal-overlay" onClick={closeBusinessDetails}>
+        <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <button className="modal-close" onClick={closeBusinessDetails}>×</button>
+          <div className="business-details">
+            <div className="detail-section">
+              <h2>{business.name}</h2>
+              {business.photos && business.photos[0] && (
+                <img src={business.photos[0].url} alt={business.name} />
+              )}
+              {business.rating && (
+                <div className="business-rating">
+                  <span className="stars">{'★'.repeat(Math.round(business.rating))}</span>
+                  <span className="rating-count">
+                    ({business.user_ratings_total || 'No'} reviews)
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="detail-section">
+              <h3>Location & Details</h3>
+              <div className="map-container">
+                {mapUrl ? (
+                  <img 
+                    src={mapUrl}
+                    alt="Business location"
+                    className="location-map"
+                    onError={(e) => {
+                      console.error('❌ Map load error:', e);
+                      e.target.src = fallbackMapImage;
+                      e.target.alt = 'Map unavailable';
+                    }}
+                  />
+                ) : (
+                  <div className="map-fallback">
+                    <img 
+                      src={fallbackMapImage}
+                      alt="Map unavailable"
+                      className="location-map"
+                    />
+                    <p className="map-error-text">
+                      {!apiKey ? 'API key missing' : !lat || !lng ? 'No location data' : 'Unable to load map'}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <p><strong>Address:</strong> {business.vicinity}</p>
+              {business.opening_hours && (
+                <p><strong>Status:</strong> {business.opening_hours.open_now ? '✅ Open now' : '❌ Closed'}</p>
+              )}
+              {business.types && (
+                <p><strong>Type:</strong> {business.types.map(t => t.replace(/_/g, ' ')).join(', ')}</p>
+              )}
+              <div className="action-buttons">
+                <button 
+                  className="directions-button"
+                  onClick={() => openDirections(business)}
+                >
+                  Get Directions
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+    );
+  };
+
+  return (
+    <div className="App">
+      <header className="header">
+        <img src={locallyBanner} alt="LOCALLY" style={{ maxWidth: '100%', height: 'auto' }} />
+      </header>
       
-      <div style={{ 
-        border: '1px solid #ddd', 
-        borderRadius: '8px', 
-        padding: '15px',
-        marginBottom: '20px',
-        maxHeight: '300px',
-        overflowY: 'auto',
-        backgroundColor: '#f9f9f9'
-      }}>
-        {messages.length > 0 ? (
-          <>
-            {messages.map((message, index) => (
-              <div 
-                key={index} 
-                style={{
-                  padding: '8px 12px',
-                  margin: '8px 0',
-                  borderRadius: '8px',
-                  maxWidth: '80%',
-                  alignSelf: message.sender === 'user' ? 'flex-end' : 'flex-start',
-                  backgroundColor: message.sender === 'user' ? '#dcf8c6' : '#fff',
-                  marginLeft: message.sender === 'user' ? 'auto' : '0',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                }}
-              >
-                <b>{message.sender === 'user' ? 'You' : 'Agent'}:</b> {message.text}
-              </div>
-            ))}
-            {isTyping && <TypingIndicator />}
-          </>
-        ) : (
-          <p style={{ textAlign: 'center', color: '#888' }}>No messages yet</p>
-        )}
+      <div className="chat-window">
+        {messages.map((msg, index) => (
+          <div key={index} className={`message ${msg.sender}`}>
+            {msg.text}
+          </div>
+        ))}
+        {isTyping && <TypingIndicator />}
+        <div ref={chatEndRef} />
       </div>
       
-      <div style={{ display: 'flex', marginBottom: '20px' }}>
+      <form onSubmit={(e) => { e.preventDefault(); handleUserResponse(query); }}>
         <input
-          style={{ 
-            flex: 1, 
-            padding: '10px', 
-            borderRadius: '4px 0 0 4px',
-            border: '1px solid #ddd',
-            fontSize: '16px'
-          }}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask a question or search for businesses..."
-          onKeyPress={(e) => e.key === 'Enter' && handleUserResponse(query)}
+          placeholder="Find restaurants, coffee shops, hotels..."
+          disabled={isTyping}
         />
-        <button 
-          style={{ 
-            padding: '10px 20px', 
-            backgroundColor: '#4CAF50', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: '0 4px 4px 0',
-            cursor: 'pointer',
-            fontSize: '16px'
-          }}
-          onClick={() => handleUserResponse(query)}
-        >
-          Send
+        <button type="submit" disabled={isTyping}>
+          {isTyping ? 'Searching...' : 'Search'}
         </button>
-      </div>
+      </form>
       
       {businesses.length > 0 && (
-        <div>
-          <h2 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Results</h2>
-          <div style={{ display: 'flex', marginBottom: '10px' }}>
-            <button 
-              style={{ 
-                marginRight: '10px',
-                padding: '5px 10px',
-                backgroundColor: sortOption === 'rating' ? '#4CAF50' : '#f1f1f1',
-                color: sortOption === 'rating' ? 'white' : 'black',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-              onClick={() => setSortOption('rating')}
-            >
-              Sort by Rating
-            </button>
-            <button 
-              style={{ 
-                padding: '5px 10px',
-                backgroundColor: sortOption === 'distance' ? '#4CAF50' : '#f1f1f1',
-                color: sortOption === 'distance' ? 'white' : 'black',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-              onClick={() => setSortOption('distance')}
-            >
-              Sort by Distance
-            </button>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px' }}>
-            {businesses.map((business, index) => (
-              <div 
-                key={index} 
-                style={{ 
-                  border: '1px solid #ddd', 
-                  borderRadius: '8px', 
-                  padding: '15px',
-                  backgroundColor: 'white',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                }}
-              >
-                {business.photo && (
-                  <img 
-                    src={business.photo} 
-                    alt={business.name} 
-                    style={{ 
-                      width: '100%', 
-                      height: '150px', 
-                      objectFit: 'cover', 
-                      borderRadius: '4px', 
-                      marginBottom: '10px' 
-                    }} 
-                  />
-                )}
-                <h3 style={{ margin: '0 0 10px 0' }}>{business.name}</h3>
-                <p style={{ margin: '5px 0', color: '#666' }}>{business.address}</p>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-                  <span>⭐ {business.rating || 'N/A'}</span>
-                  <span>📍 {business.distance} km</span>
-                </div>
-                <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between' }}>
-                  <button
-                    style={{
-                      padding: '8px 12px',
-                      backgroundColor: '#4285F4',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      width: '100%'
-                    }}
-                    onClick={() => openDirections(business)}
-                  >
-                    Get Directions
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="sort-options">
+          <label htmlFor="sort">Sort by: </label>
+          <select id="sort" value={sortOption} onChange={handleSort}>
+            <option value="relevance">Relevance</option>
+            <option value="rating">Rating</option>
+            <option value="reviews">Number of Reviews</option>
+            <option value="name">Name</option>
+          </select>
         </div>
       )}
+      
+      <div className="business-list">
+        {businesses.map((business) => (
+          <div key={business.place_id} className="business-card">
+            {business.photos && business.photos[0] && (
+              <div className="business-image">
+                <img
+                  src={business.photos[0].url || business.photos[0]}
+                  alt={business.name}
+                  onClick={() => getMoreImages(business.place_id)}
+                  style={{ cursor: 'pointer' }}
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/300x200?text=No+Image';
+                  }}
+                />
+              </div>
+            )}
+            <div className="business-info">
+              <h2>{business.name}</h2>
+              
+              {business.rating && (
+                <div className="business-rating">
+                  <span className="stars">{'★'.repeat(Math.round(business.rating))}</span>
+                  <span className="rating-count">
+                    ({business.user_ratings_total || 'No'} reviews)
+                  </span>
+                </div>
+              )}
+              
+              <p>{business.vicinity}</p>
+              
+              {business.opening_hours && (
+                <p>{business.opening_hours.open_now ? '✅ Open now' : '❌ Closed'}</p>
+              )}
+              
+              {business.types && business.types.length > 0 && (
+                <p>{business.types[0].replace(/_/g, ' ')}</p>
+              )}
+              
+              <button 
+                className="directions-button"
+                onClick={() => openBusinessDetails(business)}
+              >
+                Read More
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {selectedBusiness && <BusinessModal business={selectedBusiness} />}
     </div>
   );
 }
