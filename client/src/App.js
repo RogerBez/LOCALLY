@@ -3,10 +3,10 @@ import axios from 'axios';
 import locallyBanner from './Assets/LOCALLY BANNER.jpg';
 import './App.css';
 
-// Update the API_URL definition
+// Update the API_URL definition to use environment variables
 const API_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://locally.onrender.com/api'  // Production URL
-  : 'http://localhost:5000/api';        // Development URL with /api prefix
+  ? `${process.env.REACT_APP_API_URL}`  // Production URL from environment variable
+  : 'http://localhost:5000';            // Development URL
 console.log("Backend URL:", API_URL);
 
 // Helper function to calculate distance between two coordinates

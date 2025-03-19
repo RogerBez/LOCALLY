@@ -1,11 +1,11 @@
 services:
   - type: web
-    name: locally
+    name: locally-backend
     env: node
-    buildCommand: npm install && cd client && npm install && npm run build && cd ..
+    buildCommand: npm install
     startCommand: node index.js
     envVars:
       - key: GOOGLE_MAPS_API_KEY
-        sync: false
+        fromSecret: google_maps_api_key
       - key: NODE_ENV
         value: production
