@@ -532,6 +532,23 @@ function App() {
               <div className="business-rating-detail">
                 <div className="rating-stars">
                   <span className="stars">{'★'.repeat(Math.round(business.rating))}</span>
+                </div>
+                <span className="rating-count">({business.user_ratings_total} reviews)</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="App">
+      <header className="header">
+        <img src={locallyBanner} alt="LOCALLY" style={{ maxWidth: '100%', height: 'auto' }} />
+      </header>
+      
+      <div className="chat-window">
         {messages.map((msg, index) => (
           <div key={index} className={`message ${msg.sender}`}>
             {msg.text}
@@ -567,11 +584,20 @@ function App() {
       
       <div className="business-list">
         {businesses.map((business) => (
-          <BusinessCard key={business.place_id} business={business} onReadMore={openBusinessDetails} />
+          <BusinessCard 
+            key={business.place_id} 
+            business={business} 
+            onReadMore={openBusinessDetails} 
+          />
         ))}
       </div>
 
-      {selectedBusiness && <BusinessModal business={selectedBusiness} onClose={closeBusinessDetails} />}
+      {selectedBusiness && (
+        <BusinessModal 
+          business={selectedBusiness} 
+          onClose={closeBusinessDetails} 
+        />
+      )}
     </div>
   );
 }
