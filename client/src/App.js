@@ -172,7 +172,9 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
-        }
+        },
+        withCredentials: true,
+        timeout: 10000 // 10 second timeout
       });
 
       // Enhanced response logging
@@ -379,12 +381,60 @@ function App() {
         <button className="modal-close" onClick={onClose}>×</button>
         <div className="business-details">
           <div className="detail-section">
-            <h2>{business.name}</h2>
-            {business.photos?.[0] && (
-              <img src={business.photos[0].url} alt={business.name} />
-            )}
+            <div className="business-header">
+              <h2>{business.name}</h2>
+              <div className="business-meta">
+                <p>
+                  <strong>Address:</strong> {business.formatted_address || business.vicinity}
+                  {business.compound_code && ` (${business.compound_code})`}
+                </p>
+                {business.formatted_phone_number && (
+                  <p><strong>Phone:</strong> {business.formatted_phone_number}</p>
+                )}
+                {business.website && (
+                  <p><strong>Website:</strong> <a href={business.website} target="_blank" rel="noopener noreferrer">Visit Website</a></p>
+                )}
+              </div>
+            </div>
             
-            {/* Location Details */}
+            {business.photos?.[0] && (
+              <img src={business.photos[0].url} alt={business.name} className="business-photo" />
+            )}
+
+            {/* Static Reviews Section - Add your custom reviews here */}
+            <div className="reviews-section">
+              <h3>Customer Reviews</h3>
+              <div className="reviews-grid">
+                <div className="review-card">
+                  <div className="review-header">
+                    <span className="reviewer-name">Sarah M.</span>
+                    <span className="review-rating">★★★★★</span>
+                  </div>
+                  <p className="review-text">"Amazing service and atmosphere! The staff was incredibly friendly and the food was delicious. Will definitely be coming back!"</p>
+                  <span className="review-time">2 days ago</span>
+                </div>
+                
+                <div className="review-card">
+                  <div className="review-header">
+                    <span className="reviewer-name">John D.</span>
+                    <span className="review-rating">★★★★</span>
+                  </div>
+                  <p className="review-text">"Great location and excellent menu options. Really enjoyed the experience overall. The only minor issue was parking."</p>
+                  <span className="review-time">1 week ago</span>
+                </div>
+                
+                <div className="review-card">
+                  <div className="review-header">
+                    <span className="reviewer-name">Emily R.</span>
+                    <span className="review-rating">★★★★★</span>
+                  </div>
+                  <p className="review-text">"The best service I've had in Cape Town! Everything was perfect from start to finish. Highly recommend!"</p>
+                  <span className="review-time">2 weeks ago</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Rest of existing modal content */}
             <div className="location-details">
               <h3>Location & Contact</h3>
               <p><strong>Address:</strong> {business.formatted_address || business.vicinity}</p>

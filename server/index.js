@@ -22,18 +22,36 @@ const axios = require('axios');
 
 const app = express();
 
-// Configure CORS
+// Update CORS configuration with all possible frontend URLs
 app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://localhost:5000',
     'https://locally.vercel.app',
-    'https://locally.onrender.com'
+    'https://locally-frontend.vercel.app',
+    'https://locally-frontend-4zt1fc4w8-the-marketing-teams-projects.vercel.app',
+    /\.vercel\.app$/ // Allow all subdomains of vercel.app
   ],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  credentials: true
+  credentials: true,
+  maxAge: 86400 // 24 hours
 }));
+
+// Add CORS preflight handler
+app.options('*', cors());
+
+// Add explicit headers to all responses
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && (origin.includes('vercel.app') || origin.includes('localhost'))) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  next();
+});
 
 // Middleware
 app.use(bodyParser.json());
