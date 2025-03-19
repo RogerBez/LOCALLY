@@ -23,19 +23,28 @@ const axios = require('axios');
 const app = express();
 
 // Update CORS configuration with all possible frontend URLs
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5000',
+  'https://locally.vercel.app',
+  'https://locally-frontend.vercel.app',
+  'https://locally-frontend-4zt1fc4w8-the-marketing-teams-projects.vercel.app'
+];
+
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:5000',
-    'https://locally.vercel.app',
-    'https://locally-frontend.vercel.app',
-    'https://locally-frontend-4zt1fc4w8-the-marketing-teams-projects.vercel.app',
-    /\.vercel\.app$/ // Allow all subdomains of vercel.app
-  ],
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1 || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  maxAge: 86400 // 24 hours
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
 }));
 
 // Add CORS preflight handler
@@ -44,7 +53,7 @@ app.options('*', cors());
 // Add explicit headers to all responses
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && (origin.includes('vercel.app') || origin.includes('localhost'))) {
+  if (allowedOrigins.includes(origin) || origin?.endsWith('.vercel.app')) {
     res.header('Access-Control-Allow-Origin', origin);
   }
   res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');

@@ -14,6 +14,23 @@
   ],
   "headers": [
     {
+      "source": "/manifest.json",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
       "source": "/api/(.*)",
       "headers": [
         { "key": "Access-Control-Allow-Credentials", "value": "true" },
@@ -43,10 +60,6 @@
   "routes": [
     {
       "src": "/manifest.json",
-      "headers": {
-        "Cache-Control": "public, max-age=0, must-revalidate",
-        "Access-Control-Allow-Origin": "*"
-      },
       "dest": "/manifest.json"
     },
     {
