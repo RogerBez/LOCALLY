@@ -362,28 +362,133 @@ function App() {
             {business.photos?.[0] && (
               <img src={business.photos[0].url} alt={business.name} />
             )}
-            {business.rating && (
-              <div className="business-rating">
-                <span className="stars">{'★'.repeat(Math.round(business.rating))}</span>
-                <span className="rating-count">({business.user_ratings_total} reviews)</span>
-                {business.price_level && (
-                  <span className="price-level">{'$'.repeat(business.price_level)}</span>
-                )}
+            
+            {/* Location Details */}
+            <div className="location-details">
+              <h3>Location & Contact</h3>
+              <p><strong>Address:</strong> {business.formatted_address || business.vicinity}</p>
+              {business.compound_code && (
+                <p><strong>Area:</strong> {business.compound_code}</p>
+              )}
+              {business.formatted_phone_number && (
+                <p><strong>Phone:</strong> {business.formatted_phone_number}</p>
+              )}
+              {business.website && (
+                <p><strong>Website:</strong> <a href={business.website} target="_blank" rel="noopener noreferrer">Visit Website</a></p>
+              )}
+            </div>
+          </div>
+
+          <div className="detail-section">
+            {/* Business Status & Hours */}
+            <div className="status-details">
+              <h3>Business Information</h3>
+              {business.business_status && (
+                <p><strong>Status:</strong> {business.business_status}</p>
+              )}
+              {business.opening_hours && (
+                <div className="hours-info">
+                  <p>
+                    <strong>Hours:</strong> 
+                    <span className={`status-indicator ${business.opening_hours.open_now ? 'open' : 'closed'}`}>
+                      {business.opening_hours.open_now ? '✅ Open now' : '❌ Closed'}
+                    </span>
+                  </p>
+                  {business.opening_hours.weekday_text && (
+                    <div className="hours-list">
+                      {business.opening_hours.weekday_text.map((hours, idx) => (
+                        <p key={idx}>{hours}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Service Options */}
+            {business.service_options && Object.values(business.service_options).some(Boolean) && (
+              <div className="service-options">
+                <h3>Service Options</h3>
+                <div className="amenities-grid">
+                  {business.service_options.dine_in && <span>🍽️ Dine-in</span>}
+                  {business.service_options.takeout && <span>📦 Takeout</span>}
+                  {business.service_options.delivery && <span>🚚 Delivery</span>}
+                  {business.service_options.curbside_pickup && <span>🚗 Curbside Pickup</span>}
+                  {business.service_options.reservable && <span>📅 Reservations Available</span>}
+                </div>
               </div>
             )}
-          </div>
-          <div className="detail-section">
-            <h3>Business Details</h3>
-            <p><strong>Address:</strong> {business.formatted_address || business.vicinity}</p>
-            {business.business_status && (
-              <p><strong>Status:</strong> {business.business_status.replace(/_/g, ' ')}</p>
+
+            {/* Meal Service */}
+            {business.serves_meals && Object.values(business.serves_meals).some(Boolean) && (
+              <div className="meal-service">
+                <h3>Food & Drinks</h3>
+                <div className="amenities-grid">
+                  {business.serves_meals.breakfast && <span>🍳 Breakfast</span>}
+                  {business.serves_meals.lunch && <span>🥪 Lunch</span>}
+                  {business.serves_meals.dinner && <span>🍝 Dinner</span>}
+                  {business.serves_meals.vegetarian && <span>🥗 Vegetarian Options</span>}
+                  {business.serves_meals.beer && <span>🍺 Serves Beer</span>}
+                  {business.serves_meals.wine && <span>🍷 Serves Wine</span>}
+                </div>
+              </div>
             )}
-            {business.opening_hours && (
-              <p><strong>Hours:</strong> {business.opening_hours.open_now ? '✅ Open now' : '❌ Closed'}</p>
+
+            {/* Accessibility Section */}
+            <h3>Accessibility</h3>
+            <div className="amenities-grid">
+              {business.wheelchair_accessible && <span>♿ Wheelchair Accessible Entrance</span>}
+              {business.wheelchair_parking && <span>🅿️ Wheelchair Parking</span>}
+              {business.wheelchair_restroom && <span>🚻 Accessible Restroom</span>}
+            </div>
+
+            {/* General Amenities */}
+            <h3>Amenities & Features</h3>
+            <div className="amenities-grid">
+              {business.restroom && <span>🚻 Public Restroom</span>}
+              {business.public_transport && <span>🚌 Public Transport</span>}
+              {business.parking_available && <span>🅿️ Parking Available</span>}
+              {business.free_parking && <span>✨ Free Parking</span>}
+              {business.wheelchair_accessible && <span>♿ Wheelchair Accessible</span>}
+              {business.outdoor_seating && <span>🪑 Outdoor Seating</span>}
+              {business.takeout && <span>📦 Takeout Available</span>}
+              {business.delivery && <span>🚚 Delivery Available</span>}
+              {business.dine_in && <span>🍽️ Dine-in</span>}
+              {business.reservable && <span>📅 Accepts Reservations</span>}
+              {business.accepts_credit_cards && <span>💳 Accepts Credit Cards</span>}
+            </div>
+
+            {/* Family Features */}
+            {(business.good_for_children || business.family_friendly) && (
+              <>
+                <h3>Family Features</h3>
+                <div className="amenities-grid">
+                  {business.good_for_children && <span>👶 Good for Children</span>}
+                  {business.family_friendly && <span>👨‍👩‍👧‍👦 Family Friendly</span>}
+                </div>
+              </>
             )}
-            {business.types && (
-              <p><strong>Categories:</strong> {business.types.map(t => t.replace(/_/g, ' ')).join(', ')}</p>
+
+            {/* Top Reviews Section */}
+            {business.top_reviews && business.top_reviews.length > 0 && (
+              <div className="reviews-section">
+                <h3>Top Reviews</h3>
+                <div className="reviews-grid">
+                  {business.top_reviews.map((review, index) => (
+                    <div key={index} className="review-card">
+                      <div className="review-header">
+                        <span className="reviewer-name">{review.author_name}</span>
+                        <span className="review-rating">{'★'.repeat(review.rating)}</span>
+                      </div>
+                      <p className="review-text">{review.text}</p>
+                      <span className="review-time">{review.relative_time}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
+
+            {/* Rest of the modal content */}
             <div className="action-buttons">
               <button 
                 className="directions-button"
@@ -391,7 +496,29 @@ function App() {
               >
                 Get Directions
               </button>
+              {business.formatted_phone_number && (
+                <button 
+                  className="call-button"
+                  onClick={() => window.open(`tel:${business.formatted_phone_number}`)}
+                >
+                  📞 Call Business
+                </button>
+              )}
             </div>
+
+            {/* Rating section remains at bottom */}
+            {business.rating && (
+              <div className="business-rating-detail">
+                <div className="rating-stars">
+                  <span className="stars">{'★'.repeat(Math.round(business.rating))}</span>
+                  <span className="rating-number">{business.rating.toFixed(1)}</span>
+                </div>
+                <span className="rating-count">({business.user_ratings_total} reviews)</span>
+                {business.price_level && (
+                  <span className="price-level">{'$'.repeat(business.price_level)}</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -170,26 +170,168 @@ app.post('/api/query', async (req, res, next) => {
       throw new Error('Invalid response format from Google Places API');
     }
 
-    const businesses = response.data.results.map(place => ({
-      // Essential data for business cards
-      name: place.name,
-      vicinity: place.vicinity,
-      rating: place.rating,
-      user_ratings_total: place.user_ratings_total,
-      photos: place.photos ? place.photos.map(photo => ({
-        url: `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${process.env.GOOGLE_MAPS_API_KEY}`
-      })) : [],
+    // Get additional details for each place
+    const businesses = await Promise.all(response.data.results.map(async place => {
+      // Get detailed information for each place
+      const detailsResponse = await axios.get(
+        'https://maps.googleapis.com/maps/api/place/details/json',
+        {
+          params: {
+            place_id: place.place_id,
+            fields: [
+              // Basic info
+              'name,place_id,rating,formatted_phone_number,formatted_address,international_phone_number',
+              // Hours & Status
+              'current_opening_hours,opening_hours,business_status,price_level,user_ratings_total',
+              // Contact & Website
+              'website,email,formatted_phone_number',
+              // Accessibility & Amenities
+              'wheelchair_accessible_entrance,wheelchair_accessible_parking,wheelchair_accessible_restroom',
+              'restroom,serves_beer,serves_wine,serves_breakfast,serves_lunch,serves_dinner',
+              'delivery,dine_in,takeout,curbside_pickup,reservable,outdoor_seating',
+              // Reviews & Photos
+              'reviews,photos,price_level',
+              // Additional Features
+              'payment_options,parking,serves_vegetarian_food'
+            ].join(','),
+            key: process.env.GOOGLE_MAPS_API_KEY,
+            language: 'en' // Ensure English responses
+          }
+        }
+      );
+
+      const details = detailsResponse.data.result;
       
-      // Additional data for modal
-      place_id: place.place_id,
-      types: place.types,
-      business_status: place.business_status,
-      opening_hours: place.opening_hours,
-      price_level: place.price_level,
-      formatted_address: place.formatted_address,
-      icon: place.icon,
-      icon_background_color: place.icon_background_color,
-      icon_mask_base_uri: place.icon_mask_base_uri
+      console.log(`\n📍 Place Details for ${place.name}:`, {
+        hasDetails: !!details,
+        amenities: {
+          wheelchair: details?.wheelchair_accessible_entrance,
+          outdoor: details?.outdoor_seating,
+          delivery: details?.delivery,
+          takeout: details?.takeout,
+          reservable: details?.reservable,
+          dineIn: details?.dine_in
+        },
+        dining: {
+          servesBeer: details?.serves_beer,
+          servesWine: details?.serves_wine,
+          servesVegetarian: details?.serves_vegetarian_food
+        }
+      });
+
+      // Process top reviews
+      const topReviews = details?.reviews
+        ?.filter(review => review.rating >= 4)
+        .sort((a, b) => b.rating - a.rating || b.time - a.time)
+        .slice(0, 5)
+        .map(review => ({
+          author_name: review.author_name,
+          rating: review.rating,
+          text: review.text,
+          time: review.time,
+          relative_time: review.relative_time_description
+        })) || [];
+
+      return {
+        // Basic data
+        name: place.name,
+        vicinity: place.vicinity,
+        rating: place.rating,
+        user_ratings_total: place.user_ratings_total,
+        
+        // Add geometry data
+        latitude: place.geometry?.location?.lat,
+        longitude: place.geometry?.location?.lng,
+        
+        // Add full opening hours
+        opening_hours: {
+          open_now: details?.current_opening_hours?.open_now || place.opening_hours?.open_now,
+          weekday_text: details?.current_opening_hours?.weekday_text || details?.opening_hours?.weekday_text,
+          periods: details?.current_opening_hours?.periods || details?.opening_hours?.periods
+        },
+        
+        photos: place.photos?.map(photo => ({
+          url: `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${process.env.GOOGLE_MAPS_API_KEY}`
+        })) || [],
+        
+        // Location & Contact
+        place_id: place.place_id,
+        formatted_address: details?.formatted_address || place.vicinity,
+        formatted_phone_number: details?.formatted_phone_number || null,
+        international_phone_number: details?.international_phone_number || null,
+        website: details?.website,
+        
+        // Business Status
+        business_status: place.business_status?.toLowerCase().replace(/_/g, ' '),
+        price_level: details?.price_level || place.price_level,
+        
+        // Accessibility
+        wheelchair_accessible: details?.wheelchair_accessible_entrance || false,
+        wheelchair_parking: details?.wheelchair_accessible_parking || false,
+        wheelchair_restroom: details?.wheelchair_accessible_restroom || false,
+        
+        // Amenities
+        restroom: details?.restroom || false,
+        public_transport: details?.public_transport || false,
+        parking_available: details?.parking || false,
+        free_parking: details?.free_parking || false,
+        
+        // Family Features
+        good_for_children: details?.good_for_children || false,
+        family_friendly: details?.family_friendly || false,
+        
+        // Top Reviews
+        top_reviews: topReviews,
+        
+        // Amenities & Features
+        outdoor_seating: details?.outdoor_seating || false,
+        takeout: details?.takeout || false,
+        delivery: details?.delivery || false,
+        dine_in: details?.dine_in || false,
+        reservable: details?.reservable || false,
+        accepts_credit_cards: details?.accepts_credit_cards || false,
+        
+        // Dining Options
+        serves_beer: details?.serves_beer || false,
+        serves_wine: details?.serves_wine || false,
+        serves_vegetarian: details?.serves_vegetarian_food || false,
+        
+        // Meal service
+        serves_meals: {
+          breakfast: details?.serves_breakfast || false,
+          lunch: details?.serves_lunch || false,
+          dinner: details?.serves_dinner || false,
+          vegetarian: details?.serves_vegetarian_food || false,
+          beer: details?.serves_beer || false,
+          wine: details?.serves_wine || false
+        },
+
+        // Service options
+        service_options: {
+          dine_in: details?.dine_in || false,
+          takeout: details?.takeout || false,
+          delivery: details?.delivery || false,
+          curbside_pickup: details?.curbside_pickup || false,
+          reservable: details?.reservable || false
+        },
+
+        // Payment options
+        payment_options: {
+          credit_cards: details?.payment_options?.credit_card || false,
+          debit_cards: details?.payment_options?.debit_card || false,
+          nfc_mobile: details?.payment_options?.nfc_mobile_pay || false
+        },
+        
+        // Categories
+        types: place.types,
+        
+        // Additional fields
+        plus_code: place.plus_code,
+        compound_code: place.plus_code?.compound_code,
+        icon_background_color: place.icon_background_color,
+        icon_mask_base_uri: place.icon_mask_base_uri,
+        icon: place.icon
+      };
     }));
 
     // Log the processed results

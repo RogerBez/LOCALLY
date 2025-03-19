@@ -413,7 +413,94 @@ button:hover {
 .action-buttons {
   display: flex;
   gap: 10px;
+  margin: 20px 0;
+}
+
+.call-button {
+  background: var(--regal-gold);
+  color: var(--rich-black);
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.call-button:hover {
+  background: var(--royal-navy);
+  color: var(--pure-white);
+}
+
+/* Updated rating styles for modal */
+.business-rating-detail {
   margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--silver-gray);
+}
+
+.rating-stars {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.rating-number {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--onyx-gray);
+}
+
+.price-level {
+  margin-left: 10px;
+  color: var(--regal-gold);
+  font-weight: bold;
+}
+
+/* Reviews Section */
+.reviews-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--silver-gray);
+}
+
+.reviews-grid {
+  display: grid;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.review-card {
+  background: var(--platinum-gray);
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.reviewer-name {
+  font-weight: 600;
+  color: var(--onyx-gray);
+}
+
+.review-rating {
+  color: var(--royal-navy);
+}
+
+.review-text {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--rich-black);
+  margin: 8px 0;
+}
+
+.review-time {
+  font-size: 12px;
+  color: var(--onyx-gray);
 }
 
 /* Responsive adjustments */
