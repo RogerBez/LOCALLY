@@ -25,9 +25,10 @@ const app = express();
 // Configure CORS
 app.use(cors({
   origin: [
-    'http://localhost:3000',
-    'https://locally.vercel.app',
-    'https://locally.onrender.com'
+    'http://localhost:3000',           // Local development
+    'https://locally.vercel.app',      // Vercel deployment
+    'https://locally.onrender.com',    // Render deployment
+    'https://your-domain.com'          // Your custom domain
   ],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
@@ -77,7 +78,7 @@ app.get('/check-api-key', (req, res) => {
   });
 });
 
-// Add query endpoint with logging
+// Update routes to use /api prefix consistently
 app.post('/api/query', async (req, res, next) => {
   try {
     const { query, latitude, longitude } = req.body;

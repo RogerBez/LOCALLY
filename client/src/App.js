@@ -4,7 +4,7 @@ import locallyBanner from './Assets/LOCALLY BANNER.jpg';
 import './App.css';
 
 // Update the API_URL definition to use environment variables
-const API_URL = process.env.NODE_ENV === 'production' 
+const API_URL = process.env.NODE_ENV === 'production'
   ? `${process.env.REACT_APP_API_URL}`  // Production URL from environment variable
   : 'http://localhost:5000';            // Development URL
 console.log("Backend URL:", API_URL);
