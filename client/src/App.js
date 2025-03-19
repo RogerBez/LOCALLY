@@ -11,6 +11,13 @@ const API_URL = process.env.NODE_ENV === 'production'
 console.log("Environment:", process.env.NODE_ENV);
 console.log("Backend URL:", API_URL);
 
+// Add detailed environment logging
+console.log("🔧 Environment Details:", {
+  nodeEnv: process.env.NODE_ENV,
+  apiUrl: API_URL,
+  isProd: process.env.NODE_ENV === 'production'
+});
+
 // Helper function to calculate distance between two coordinates
 const computeDistance = (lat1, lon1, lat2, lon2) => {
   const toRad = (angle) => (Math.PI * angle) / 180;
@@ -82,14 +89,18 @@ function App() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setLocation({
+          const loc = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude
-          });
-          console.log("Location set:", position.coords.latitude, position.coords.longitude);
+          };
+          console.log("📍 Location received:", loc);
+          setLocation(loc);
         },
         (error) => {
-          console.error("Error getting location:", error);
+          console.error("❌ Geolocation error:", {
+            code: error.code,
+            message: error.message
+          });
           setMessages((prev) => [
             ...prev,
             { sender: "agent", text: "I need access to your location to find nearby businesses. Could you please enable location services so I can help you better?" }
@@ -128,6 +139,12 @@ function App() {
 
   // Update axios request with proper headers
   const handleUserResponse = async (userInput) => {
+    console.log("🚀 Starting search request:", {
+      query: userInput,
+      location: location,
+      apiEndpoint: `${API_URL}/query`
+    });
+
     if (!userInput.trim()) return;
     
     setMessages((prev) => [...prev, { sender: "user", text: userInput }]);
@@ -145,6 +162,7 @@ function App() {
     setIsTyping(true);
 
     try {
+      console.log("📤 Sending request to server...");
       // Make API request to search for businesses
       const res = await axios.post(`${API_URL}/query`, {  // /api/query in development
         query: userInput,
@@ -154,6 +172,16 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
+        }
+      });
+
+      console.log("📥 Server response:", {
+        status: res.status,
+        businessCount: res.data?.businesses?.length || 0,
+        firstBusinessName: res.data?.businesses?.[0]?.name,
+        firstBusinessLocation: {
+          lat: res.data?.businesses?.[0]?.latitude,
+          lng: res.data?.businesses?.[0]?.longitude
         }
       });
 
@@ -182,12 +210,18 @@ function App() {
         }
       ]);
     } catch (error) {
-      console.error("❌ Error fetching businesses:", error);
+      console.error("❌ Request failed:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        endpoint: `${API_URL}/query`
+      });
+
       setMessages((prev) => [
         ...prev,
         { 
           sender: "agent", 
-          text: "Oops! Something went wrong on my end. Could you try again in a moment? I'm really sorry for the inconvenience!" 
+          text: `Error: ${error.response?.data?.message || error.message}. Status: ${error.response?.status || 'unknown'}` 
         }
       ]);
     } finally {

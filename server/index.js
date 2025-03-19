@@ -80,46 +80,42 @@ app.get('/check-api-key', (req, res) => {
 
 // Update route to match client request
 app.post('/api/query', async (req, res, next) => {
-  try {
-    const { query, latitude, longitude } = req.body;
-    
-    // Verify API key before making request
-    if (!process.env.GOOGLE_MAPS_API_KEY) {
-      throw new Error('API key is not configured');
-    }
+  const requestId = Math.random().toString(36).substring(7);
+  console.log(`\n🔍 [${requestId}] Incoming request:`, {
+    timestamp: new Date().toISOString(),
+    query: req.body.query,
+    location: `${req.body.latitude},${req.body.longitude}`,
+    origin: req.headers.origin,
+    environment: process.env.NODE_ENV
+  });
 
-    const apiUrl = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json'; // Changed to nearbysearch
+  try {
+    const apiUrl = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json';
     const params = {
-      keyword: query,  // Using keyword instead of query
-      location: `${latitude},${longitude}`,
+      keyword: req.body.query,
+      location: `${req.body.latitude},${req.body.longitude}`,
       radius: 5000,
-      type: 'establishment',  // Added type
+      type: 'establishment',
       key: process.env.GOOGLE_MAPS_API_KEY.trim()
     };
 
-    console.log('\n📍 Making Places API request:', {
+    console.log(`\n📤 [${requestId}] Google Places API request:`, {
       url: apiUrl,
-      params: { ...params, key: 'HIDDEN' },
-      clientIP: req.ip,
-      origin: req.headers.origin || 'No origin'
+      params: { ...params, key: 'HIDDEN' }
     });
 
-    const response = await axios.get(apiUrl, { 
-      params,
-      headers: {
-        'User-Agent': 'LOCALLY-Service-Agent/1.0',
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-        'Origin': process.env.NODE_ENV === 'production' 
-          ? 'https://locally.onrender.com'
-          : 'http://localhost:5000',
-        'Referer': process.env.NODE_ENV === 'production'
-          ? 'https://locally.onrender.com/'
-          : 'http://localhost:5000/'
-      }
+    const response = await axios.get(apiUrl, { params });
+
+    console.log(`\n📥 [${requestId}] Google Places API response:`, {
+      status: response.data.status,
+      resultsCount: response.data.results?.length || 0,
+      firstResult: response.data.results?.[0] ? {
+        name: response.data.results[0].name,
+        vicinity: response.data.results[0].vicinity,
+        location: response.data.results[0].geometry?.location
+      } : null
     });
-    
+
     // Enhanced logging of first result to see all available fields
     if (response.data.results?.[0]) {
       console.log('\n📍 Available Business Data Fields:');
@@ -196,6 +192,15 @@ app.post('/api/query', async (req, res, next) => {
       icon_mask_base_uri: place.icon_mask_base_uri
     }));
 
+    // Log the processed results
+    console.log(`\n✅ [${requestId}] Sending response:`, {
+      businessCount: businesses.length,
+      firstBusiness: businesses[0] ? {
+        name: businesses[0].name,
+        vicinity: businesses[0].vicinity
+      } : null
+    });
+
     // Log first business for debugging
     if (businesses.length > 0) {
       console.log('📌 First result:', {
@@ -206,12 +211,10 @@ app.post('/api/query', async (req, res, next) => {
 
     res.json({ businesses });
   } catch (error) {
-    console.error('\n❌ Places API Error:', {
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      headers: error.response?.headers,
-      message: error.message
+    console.error(`\n❌ [${requestId}] Error:`, {
+      message: error.message,
+      googleApiStatus: error.response?.data?.status,
+      googleApiError: error.response?.data?.error_message
     });
     next(error);
   }
