@@ -3,10 +3,12 @@ import axios from 'axios';
 import locallyBanner from './Assets/LOCALLY BANNER.jpg';
 import './App.css';
 
-// Update the API_URL definition to use environment variables
+// Update API URL configuration to handle environments correctly
 const API_URL = process.env.NODE_ENV === 'production'
-  ? `${process.env.REACT_APP_API_URL}`  // Production URL from environment variable
-  : 'http://localhost:5000';            // Development URL
+  ? 'https://locally-server.onrender.com/api'  // Production backend
+  : 'http://localhost:5000/api';               // Local development
+
+console.log("Environment:", process.env.NODE_ENV);
 console.log("Backend URL:", API_URL);
 
 // Helper function to calculate distance between two coordinates
@@ -144,7 +146,7 @@ function App() {
 
     try {
       // Make API request to search for businesses
-      const res = await axios.post(`${API_URL}/query`, {
+      const res = await axios.post(`${API_URL}/query`, {  // /api/query in development
         query: userInput,
         latitude: location.latitude,
         longitude: location.longitude

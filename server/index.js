@@ -25,10 +25,10 @@ const app = express();
 // Configure CORS
 app.use(cors({
   origin: [
-    'http://localhost:3000',           // Local development
-    'https://locally.vercel.app',      // Vercel deployment
-    'https://locally.onrender.com',    // Render deployment
-    'https://your-domain.com'          // Your custom domain
+    'http://localhost:3000',
+    'http://localhost:5000',
+    'https://locally.vercel.app',
+    'https://locally.onrender.com'
   ],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
@@ -78,7 +78,7 @@ app.get('/check-api-key', (req, res) => {
   });
 });
 
-// Update routes to use /api prefix consistently
+// Update route to match client request
 app.post('/api/query', async (req, res, next) => {
   try {
     const { query, latitude, longitude } = req.body;
@@ -111,8 +111,12 @@ app.post('/api/query', async (req, res, next) => {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
-        'Origin': 'http://localhost:5000',
-        'Referer': 'http://localhost:5000/'
+        'Origin': process.env.NODE_ENV === 'production' 
+          ? 'https://locally.onrender.com'
+          : 'http://localhost:5000',
+        'Referer': process.env.NODE_ENV === 'production'
+          ? 'https://locally.onrender.com/'
+          : 'http://localhost:5000/'
       }
     });
     
