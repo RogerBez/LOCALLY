@@ -175,15 +175,34 @@ function App() {
         }
       });
 
-      console.log("📥 Server response:", {
-        status: res.status,
-        businessCount: res.data?.businesses?.length || 0,
-        firstBusinessName: res.data?.businesses?.[0]?.name,
-        firstBusinessLocation: {
-          lat: res.data?.businesses?.[0]?.latitude,
-          lng: res.data?.businesses?.[0]?.longitude
+      // Enhanced response logging
+      console.log("\n📥 Server Response Details:");
+      console.log("---------------------------");
+      console.log(`Status: ${res.status}`);
+      console.log(`Total Results: ${res.data?.businesses?.length || 0}`);
+      
+      // Log first business details if available
+      if (res.data?.businesses?.[0]) {
+        const firstBusiness = res.data.businesses[0];
+        console.log("\n🏪 First Business Details:");
+        console.log("---------------------------");
+        console.log(`Name: ${firstBusiness.name}`);
+        console.log(`Address: ${firstBusiness.formatted_address || firstBusiness.vicinity}`);
+        console.log(`Rating: ${firstBusiness.rating} (${firstBusiness.user_ratings_total} reviews)`);
+        console.log(`Location: ${firstBusiness.latitude}, ${firstBusiness.longitude}`);
+        console.log(`Open Now: ${firstBusiness.opening_hours?.open_now ? '✅' : '❌'}`);
+        
+        // Log available amenities
+        const amenities = [];
+        if (firstBusiness.wheelchair_accessible) amenities.push('♿ Wheelchair Accessible');
+        if (firstBusiness.outdoor_seating) amenities.push('🪑 Outdoor Seating');
+        if (firstBusiness.delivery) amenities.push('🚚 Delivery');
+        if (firstBusiness.takeout) amenities.push('📦 Takeout');
+        
+        if (amenities.length > 0) {
+          console.log("\nAmenities Available:", amenities.join(', '));
         }
-      });
+      }
 
       let businessesWithDistance = res.data.businesses.map((biz) => ({
         ...biz,
@@ -210,12 +229,14 @@ function App() {
         }
       ]);
     } catch (error) {
-      console.error("❌ Request failed:", {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-        endpoint: `${API_URL}/query`
-      });
+      console.error("\n❌ Request Failed:");
+      console.error("---------------------------");
+      console.error(`Status: ${error.response?.status || 'Unknown'}`);
+      console.error(`Message: ${error.response?.data?.message || error.message}`);
+      console.error(`Endpoint: ${API_URL}/query`);
+      if (error.response?.data) {
+        console.error("Response Data:", error.response.data);
+      }
 
       setMessages((prev) => [
         ...prev,
@@ -511,27 +532,6 @@ function App() {
               <div className="business-rating-detail">
                 <div className="rating-stars">
                   <span className="stars">{'★'.repeat(Math.round(business.rating))}</span>
-                  <span className="rating-number">{business.rating.toFixed(1)}</span>
-                </div>
-                <span className="rating-count">({business.user_ratings_total} reviews)</span>
-                {business.price_level && (
-                  <span className="price-level">{'$'.repeat(business.price_level)}</span>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="App">
-      <header className="header">
-        <img src={locallyBanner} alt="LOCALLY" style={{ maxWidth: '100%', height: 'auto' }} />
-      </header>
-      
-      <div className="chat-window">
         {messages.map((msg, index) => (
           <div key={index} className={`message ${msg.sender}`}>
             {msg.text}
