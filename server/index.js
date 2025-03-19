@@ -26,11 +26,11 @@ const app = express();
 app.use(cors({
   origin: [
     'http://localhost:3000',
-    'https://your-locally-app.vercel.app',
-    'https://localserviceagent.onrender.com'
+    'https://locally.vercel.app',
+    'https://locally.onrender.com'
   ],
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   credentials: true
 }));
 

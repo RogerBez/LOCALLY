@@ -5,8 +5,8 @@ import './App.css';
 
 // Update the API_URL definition
 const API_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://locally.onrender.com'  // Use full Render URL
-  : 'http://localhost:5000';               // Local development
+  ? 'https://locally.onrender.com/api'  // Production URL
+  : 'http://localhost:5000/api';        // Development URL with /api prefix
 console.log("Backend URL:", API_URL);
 
 // Helper function to calculate distance between two coordinates
@@ -15,7 +15,7 @@ const computeDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371; // Radius of Earth in km
 
   const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon1 - lon2);
+  const dLon = toRad(lat1 - lon1);
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
@@ -150,7 +150,8 @@ function App() {
         longitude: location.longitude
       }, {
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
       });
 
