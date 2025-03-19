@@ -1,33 +1,5 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "index.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "client/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "build"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/query",
-      "dest": "/index.js"
-    },
-    {
-      "src": "/images/(.*)",
-      "dest": "/index.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/client/build/$1"
-    }
-  ],
-  "env": {
-    "GOOGLE_MAPS_API_KEY": "AIzaSyCuNG7tLLBn97JBccV3HifTnCLFhQ0g8qw"
-  }
+  "buildCommand": "cd client && npm install && npm run build",
+  "outputDirectory": "client/build"
 }

@@ -59,9 +59,9 @@ const sampleBusinesses = [
     }
 ];
 
-// Test routes
-app.get('/', (req, res) => {
-    res.json({ status: 'Server is running!' });
+// Update routes to use /api prefix
+app.get('/api/', (req, res) => {
+    res.json({ status: 'LOCALLY API is running!' });
 });
 
 app.get('/api/businesses', (req, res) => {
@@ -78,7 +78,7 @@ app.get('/check-api-key', (req, res) => {
 });
 
 // Add query endpoint with logging
-app.post('/query', async (req, res, next) => {
+app.post('/api/query', async (req, res, next) => {
   try {
     const { query, latitude, longitude } = req.body;
     
@@ -211,6 +211,16 @@ app.post('/query', async (req, res, next) => {
     next(error);
   }
 });
+
+// Add static file serving for production
+if (process.env.NODE_ENV === 'production') {
+    const path = require('path');
+    app.use(express.static(path.join(__dirname, '../client/build')));
+    
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(__dirname, '../client/build/index.html'));
+    });
+}
 
 // 404 handler - place before error handler
 app.use((req, res, next) => {

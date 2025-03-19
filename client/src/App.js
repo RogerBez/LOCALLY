@@ -4,10 +4,9 @@ import locallyBanner from './Assets/LOCALLY BANNER.jpg';
 import './App.css';
 
 // Update the API_URL definition
-const API_URL = process.env.REACT_APP_API_URL || 
-  (process.env.NODE_ENV === 'production' 
-    ? '/api'  // Use relative path in production
-    : 'http://localhost:5000');
+const API_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://locally.onrender.com'  // Use full Render URL
+  : 'http://localhost:5000';               // Local development
 console.log("Backend URL:", API_URL);
 
 // Helper function to calculate distance between two coordinates
@@ -73,8 +72,8 @@ function App() {
   const [location, setLocation] = useState(null);
   const [sortOption, setSortOption] = useState("relevance");
   const [isTyping, setIsTyping] = useState(false);
-  const chatEndRef = useRef(null);
   const [selectedBusiness, setSelectedBusiness] = useState(null);
+  // Removed unused chatEndRef
 
   // Get user's location on component mount
   useEffect(() => {
@@ -217,55 +216,6 @@ function App() {
     setBusinesses(sortedData);
   };
 
-  // Function to open Google Maps directions
-  const openDirections = (business) => {
-    // Debug location data
-    console.log('📍 Direction Request:', {
-      hasGeometry: !!business.geometry,
-      hasLocation: !!business.geometry?.location,
-      lat: business.geometry?.location?.lat,
-      lng: business.geometry?.location?.lng,
-      placeId: business.place_id
-    });
-
-    // Check for valid location data
-    if (!business.geometry?.location?.lat || !business.geometry?.location?.lng) {
-      // Show error in the modal instead of an alert
-      const errorDiv = document.createElement('div');
-      errorDiv.className = 'error-message';
-      errorDiv.textContent = 'Sorry, location information is not available for this business.';
-      
-      // Remove any existing error message
-      const existingError = document.querySelector('.error-message');
-      if (existingError) existingError.remove();
-      
-      // Add new error message before the action buttons
-      const actionButtons = document.querySelector('.action-buttons');
-      if (actionButtons) {
-        actionButtons.parentNode.insertBefore(errorDiv, actionButtons);
-        
-        // Auto-remove the error after 5 seconds
-        setTimeout(() => errorDiv.remove(), 5000);
-      }
-      return;
-    }
-
-    // If we have valid location data, open directions in Google Maps
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${business.geometry.location.lat},${business.geometry.location.lng}&destination_place_id=${business.place_id}`;
-    window.open(url, '_blank');
-  };
-
-  // Function to get more images for a business
-  const getMoreImages = async (placeId) => {
-    try {
-      const res = await axios.get(`${API_URL}/images/${placeId}`);
-      return res.data.photoUrls;
-    } catch (error) {
-      console.error("Error fetching images:", error);
-      return [];
-    }
-  };
-
   // Add modal handlers
   const openBusinessDetails = (business) => {
     setSelectedBusiness(business);
@@ -400,9 +350,9 @@ function App() {
             <div className="action-buttons">
               <button 
                 className="directions-button"
-                onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(business.name)}&query_place_id=${business.place_id}`, '_blank')}
+                onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(business.name)}&query_place_id=${business.place_id}`, '_blank')}
               >
-                Open in Google Maps
+                Get Directions
               </button>
             </div>
           </div>
