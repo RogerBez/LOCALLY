@@ -24,7 +24,7 @@ const { synthesizeSpeech, transcribeSpeech } = require('./utils/voice');
 
 const app = express();
 
-// Update CORS configuration
+// Define allowed origins first
 const allowedOrigins = [
   'https://locally-frontend.vercel.app',
   'https://locally-frontend-172s1h0pa-the-marketing-teams-projects.vercel.app',
@@ -32,15 +32,17 @@ const allowedOrigins = [
   'http://localhost:5000'
 ];
 
+// 1. CORS configuration - must be first middleware
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, etc.)
-    if (!origin) return callback(null, true);
+    if (process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
     
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.log('Blocked origin:', origin);
+      console.log('⛔ Blocked origin:', origin);
       callback(new Error('CORS policy violation'));
     }
   },
@@ -49,8 +51,23 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
 }));
 
-// Add CORS preflight
+// 2. OPTIONS preflight handler
 app.options('*', cors());
+
+// 3. CORS debug logging (after CORS middleware)
+app.use((req, res, next) => {
+  console.log('\n🔒 CORS Debug:', {
+    method: req.method,
+    url: req.url,
+    origin: req.headers.origin,
+    allowed: !req.headers.origin || allowedOrigins.includes(req.headers.origin),
+    headers: {
+      'access-control-allow-origin': res.getHeader('access-control-allow-origin'),
+      'access-control-allow-credentials': res.getHeader('access-control-allow-credentials')
+    }
+  });
+  next();
+});
 
 app.use(bodyParser.json());
 
