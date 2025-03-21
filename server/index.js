@@ -24,15 +24,31 @@ const { synthesizeSpeech, transcribeSpeech } = require('./utils/voice');
 
 const app = express();
 
-// Updated CORS configuration
+// Update CORS configuration
+const allowedOrigins = [
+  'https://locally-frontend.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5000'
+];
+
 app.use(cors({
-  origin: '*',
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Accept'],
-  credentials: false
+  allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
+  credentials: true,
+  maxAge: 86400 // 24 hours
 }));
 
-// Add pre-flight handling
+// Preflight OPTIONS handler
 app.options('*', cors());
 
 app.use(bodyParser.json());
@@ -135,48 +151,30 @@ app.post('/api/query', async (req, res, next) => {
       firstResult: response.data.results?.[0] ? {
         name: response.data.results[0].name,
         vicinity: response.data.results[0].vicinity,
-        location: response.data.results[0].geometry?.location
-      } : null
-    });
-
-    // Enhanced logging of first result to see all available fields
-    if (response.data.results?.[0]) {
-      console.log('\n📍 Available Business Data Fields:');
-      const sampleBusiness = response.data.results[0];
-      console.log(JSON.stringify({
-        // Basic info
-        name: sampleBusiness.name,
-        rating: sampleBusiness.rating,
-        user_ratings_total: sampleBusiness.user_ratings_total,
-        price_level: sampleBusiness.price_level,
-        
-        // Location
-        vicinity: sampleBusiness.vicinity,
-        formatted_address: sampleBusiness.formatted_address,
         
         // Status
-        business_status: sampleBusiness.business_status,
-        opening_hours: sampleBusiness.opening_hours,
+        business_status: response.data.results[0].business_status,
+        opening_hours: response.data.results[0].opening_hours,
         
         // Categories & Details
-        types: sampleBusiness.types,
-        icon: sampleBusiness.icon,
+        types: response.data.results[0].types,
+        icon: response.data.results[0].icon,
         
         // Photos
-        photos: sampleBusiness.photos?.length || 0,
+        photos: response.data.results[0].photos?.length || 0,
         
         // Place details
-        place_id: sampleBusiness.place_id,
-        plus_code: sampleBusiness.plus_code,
+        place_id: response.data.results[0].place_id,
+        plus_code: response.data.results[0].plus_code,
         
         // Additional fields if any
-        ...Object.keys(sampleBusiness)
+        ...Object.keys(response.data.results[0])
           .filter(key => !['name', 'rating', 'user_ratings_total', 'price_level', 'vicinity', 
                          'formatted_address', 'business_status', 'opening_hours', 'types', 
                          'icon', 'photos', 'place_id', 'plus_code'].includes(key))
-          .reduce((obj, key) => ({ ...obj, [key]: typeof sampleBusiness[key] }), {})
-      }, null, 2));
-    }
+          .reduce((obj, key) => ({ ...obj, [key]: typeof response.data.results[0][key] }), {})
+      } : null
+    });
 
     // Better error handling
     if (response.data.status === 'REQUEST_DENIED') {
