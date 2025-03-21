@@ -21,5 +21,16 @@
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#1F3A93",
-  "background_color": "#ffffff"
+  "background_color": "#ffffff",
+  "manifest_version": 2,
+  "permissions": [],
+  "cross_origin_embedder_policy": {
+    "value": "require-corp"
+  },
+  "cross_origin_opener_policy": {
+    "value": "same-origin"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
 }

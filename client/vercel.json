@@ -21,6 +21,10 @@
           "value": "*"
         },
         {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET"
+        },
+        {
           "key": "Content-Type",
           "value": "application/json"
         },

@@ -188,7 +188,8 @@ function App() {
           'Accept': 'application/json'
         },
         timeout: 10000,
-        validateStatus: (status) => status >= 200 && status < 500
+        validateStatus: (status) => status >= 200 && status < 500,
+        withCredentials: true
       });
 
       // Enhanced response logging
@@ -269,7 +270,6 @@ function App() {
       } else {
         // Error in request setup
         console.error('Status: Request Failed');
-        console.error(`Message: ${error.message}`);
       }
       console.error(`Endpoint: ${API_URL}/query`);
 
