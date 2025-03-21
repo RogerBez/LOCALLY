@@ -32,23 +32,32 @@ const allowedOrigins = [
   'http://localhost:5000'
 ];
 
-// 1. CORS configuration - must be first middleware
+// CORS configuration - must be first middleware
 app.use(cors({
   origin: function(origin, callback) {
+    console.log('🔍 Incoming request from origin:', origin);
+    
+    // Allow all origins in development
     if (process.env.NODE_ENV === 'development') {
       return callback(null, true);
     }
     
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('⛔ Blocked origin:', origin);
-      callback(new Error('CORS policy violation'));
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) {
+      return callback(null, true);
     }
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    console.log('⛔ Blocked origin:', origin);
+    callback(new Error('CORS policy violation'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+  exposedHeaders: ['Access-Control-Allow-Origin']
 }));
 
 // 2. OPTIONS preflight handler

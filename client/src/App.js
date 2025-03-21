@@ -188,7 +188,7 @@ function App() {
           'Accept': 'application/json',
           'Origin': window.location.origin
         },
-        withCredentials: true
+        withCredentials: false // Change to false if not using credentials
       });
 
       // Enhanced response logging
@@ -256,22 +256,12 @@ function App() {
       }
 
     } catch (error) {
-      console.error("\n❌ Request Failed:");
-      console.error("---------------------------");
-      if (error.response) {
-        // Server responded with error
-        console.error(`Status: ${error.response.status}`);
-        console.error(`Message: ${error.response.data?.message || error.message}`);
-      } else if (error.request) {
-        // Request was made but no response
-        console.error('Status: No Response');
-        console.error('Message: Server is unreachable');
-      } else {
-        // Error in request setup
-        console.error('Status: Request Failed');
-      }
-      console.error(`Endpoint: ${API_URL}/query`);
-
+      console.error("\n❌ Request Failed:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers
+      });
       setMessages((prev) => [
         ...prev,
         { 
@@ -544,7 +534,9 @@ function App() {
           </button>
         </form>
         <div className="ai-personality">
+          <label htmlFor="ai-personality-select">Choose your AI AGENT:</label>
           <select 
+            id="ai-personality-select"
             value={aiPersonality} 
             onChange={(e) => handlePersonalityChange(e.target.value)}
           >
@@ -587,6 +579,7 @@ function App() {
         <div className="sort-options">
           <label htmlFor="sort">Sort by: </label>
           <select id="sort" value={sortOption} onChange={handleSort}>
+            <option value="distance">Distance</option>
             <option value="relevance">Relevance</option>
             <option value="rating">Rating</option>
             <option value="reviews">Number of Reviews</option>

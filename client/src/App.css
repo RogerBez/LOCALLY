@@ -786,6 +786,16 @@ button:hover {
 /* AI Personality Selector */
 .ai-personality {
   margin-left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-personality label {
+  color: var(--royal-navy);
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
 }
 
 .ai-personality select {
@@ -794,6 +804,7 @@ button:hover {
   border: 1px solid var(--silver-gray);
   background: var(--pure-white);
   color: var(--rich-black);
+  min-width: 180px;
 }
 
 /* Search History */
@@ -812,7 +823,7 @@ button:hover {
 
 .history-item {
   background: var(--royal-navy);
-  color: var(--pure-white);
+  color: var (--pure-white);
   padding: 8px 16px;
   border-radius: 20px;
   font-size: 14px;
