@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import locallyBanner from './Assets/LOCALLY BANNER.jpg';
+import logo from './LOGO.png';  // Update import to match actual filename case
 import './App.css';
 
 // Update API URL configuration to handle environments correctly
@@ -63,15 +64,18 @@ const generateConversationalResponse = (query, businesses) => {
   return successResponses[Math.floor(Math.random() * successResponses.length)];
 };
 
-// Welcome messages for initial load
+// Define taglines outside of functions so it's available throughout the component
+const taglines = [
+  "Search far and wide.",
+  "Find hidden gems.",
+  "Explore more.",
+  "Discover cool stuff."
+];
+
+// Update welcome message function to use the shared taglines array
 const getWelcomeMessage = () => {
-  const welcomeMessages = [
-    "Hi there! I'm your LOCALLY assistant. How can I help you find businesses in your area today?",
-    "Welcome to LOCALLY! I'm here to help you discover great local businesses. What are you looking for?",
-    "Hello! I'm your personal LOCALLY guide. Tell me what you're searching for, and I'll find the best options near you!",
-    "Hey there! Ready to explore local businesses? Just let me know what you're interested in finding!"
-  ];
-  return welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)];
+  const randomTagline = taglines[Math.floor(Math.random() * taglines.length)];
+  return `${randomTagline} Tell me what you're searching for, and I'll find the best options near you!`;
 };
 
 function App() {
@@ -82,6 +86,12 @@ function App() {
   const [sortOption, setSortOption] = useState("relevance");
   const [isTyping, setIsTyping] = useState(false);
   const [selectedBusiness, setSelectedBusiness] = useState(null);
+  const [aiPersonality, setAiPersonality] = useState(localStorage.getItem('aiPersonality') || 'professional');
+  const [searchHistory, setSearchHistory] = useState(JSON.parse(localStorage.getItem('searchHistory') || '[]'));
+  const [currentPage, setCurrentPage] = useState(1);
+  const [followUpQuestion, setFollowUpQuestion] = useState(null);
+  const [filteredBusinesses, setFilteredBusinesses] = useState([]);
+
   // Removed unused chatEndRef
 
   // Get user's location on component mount
@@ -163,18 +173,22 @@ function App() {
 
     try {
       console.log("📤 Sending request to server...");
-      // Make API request to search for businesses
-      const res = await axios.post(`${API_URL}/query`, {  // /api/query in development
-        query: userInput,
-        latitude: location.latitude,
-        longitude: location.longitude
-      }, {
+      const res = await axios({
+        method: 'post',
+        url: `${API_URL}/query`,
+        data: {
+          query: userInput,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          aiPersonality,
+          searchHistory
+        },
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        withCredentials: true,
-        timeout: 10000 // 10 second timeout
+        timeout: 10000,
+        validateStatus: (status) => status >= 200 && status < 500
       });
 
       // Enhanced response logging
@@ -194,7 +208,7 @@ function App() {
         console.log(`Location: ${firstBusiness.latitude}, ${firstBusiness.longitude}`);
         console.log(`Open Now: ${firstBusiness.opening_hours?.open_now ? '✅' : '❌'}`);
         
-        // Log available amenities
+        // Log available amenities - Fix duplicate declaration
         const amenities = [];
         if (firstBusiness.wheelchair_accessible) amenities.push('♿ Wheelchair Accessible');
         if (firstBusiness.outdoor_seating) amenities.push('🪑 Outdoor Seating');
@@ -222,34 +236,74 @@ function App() {
 
       setBusinesses(sortedBusinesses);
       
-      // Add a conversational response based on the query and results
+      // Use the AI-generated message from the response
       setMessages((prev) => [
         ...prev, 
         { 
           sender: "agent", 
-          text: generateConversationalResponse(userInput, sortedBusinesses)
+          text: res.data.message || generateConversationalResponse(userInput, sortedBusinesses)
         }
       ]);
+
+      // Update search history
+      const newHistory = [userInput, ...searchHistory].slice(0, 5);
+      setSearchHistory(newHistory);
+      localStorage.setItem('searchHistory', JSON.stringify(newHistory));
+
+      // Set follow-up question if one is returned
+      if (res.data.followUpQuestion) {
+        setFollowUpQuestion(res.data.followUpQuestion);
+      }
+
     } catch (error) {
       console.error("\n❌ Request Failed:");
       console.error("---------------------------");
-      console.error(`Status: ${error.response?.status || 'Unknown'}`);
-      console.error(`Message: ${error.response?.data?.message || error.message}`);
-      console.error(`Endpoint: ${API_URL}/query`);
-      if (error.response?.data) {
-        console.error("Response Data:", error.response.data);
+      if (error.response) {
+        // Server responded with error
+        console.error(`Status: ${error.response.status}`);
+        console.error(`Message: ${error.response.data?.message || error.message}`);
+      } else if (error.request) {
+        // Request was made but no response
+        console.error('Status: No Response');
+        console.error('Message: Server is unreachable');
+      } else {
+        // Error in request setup
+        console.error('Status: Request Failed');
+        console.error(`Message: ${error.message}`);
       }
+      console.error(`Endpoint: ${API_URL}/query`);
 
       setMessages((prev) => [
         ...prev,
         { 
           sender: "agent", 
-          text: `Error: ${error.response?.data?.message || error.message}. Status: ${error.response?.status || 'unknown'}` 
+          text: error.response?.data?.message || 
+                "Sorry, I'm having trouble connecting to the server. Please try again in a moment." 
         }
       ]);
     } finally {
       // Hide typing indicator after search is complete
       setIsTyping(false);
+    }
+  };
+
+  const handleFollowUpResponse = async (type, value) => {
+    try {
+        const response = await axios.post(`${API_URL}/query/follow-up`, {
+            type,
+            value,
+            originalQuery: query,
+            businesses
+        });
+
+        setBusinesses(response.data.businesses);
+        setMessages(prev => [...prev, 
+            { sender: 'user', text: `Yes, show me ${type === 'rating' ? `${value}+ star places` : type === 'distance' ? `places within ${value}km` : value === 'outdoor' ? 'places with outdoor seating' : 'more options'}` },
+            { sender: 'agent', text: response.data.message }
+        ]);
+        setFollowUpQuestion(null);
+    } catch (error) {
+        console.error('Follow-up error:', error);
     }
   };
 
@@ -345,7 +399,7 @@ function App() {
     </div>
   );
 
-  // Business card component - Keep it simple
+  // Business card component
   const BusinessCard = ({ business, onReadMore }) => (
     <div className="business-card">
       <div className="business-image">
@@ -374,176 +428,23 @@ function App() {
     </div>
   );
 
-  // Business modal - Show all available details
+  // Business Modal Component
   const BusinessModal = ({ business, onClose }) => (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>×</button>
         <div className="business-details">
-          <div className="detail-section">
-            <div className="business-header">
-              <h2>{business.name}</h2>
-              <div className="business-meta">
-                <p>
-                  <strong>Address:</strong> {business.formatted_address || business.vicinity}
-                  {business.compound_code && ` (${business.compound_code})`}
-                </p>
-                {business.formatted_phone_number && (
-                  <p><strong>Phone:</strong> {business.formatted_phone_number}</p>
-                )}
-                {business.website && (
-                  <p><strong>Website:</strong> <a href={business.website} target="_blank" rel="noopener noreferrer">Visit Website</a></p>
-                )}
-              </div>
-            </div>
+          <div className="detail-section left-column">
+            <h2>{business.name}</h2>
             
             {business.photos?.[0] && (
               <img src={business.photos[0].url} alt={business.name} className="business-photo" />
             )}
 
-            {/* Static Reviews Section - Add your custom reviews here */}
-            <div className="reviews-section">
-              <h3>Customer Reviews</h3>
-              <div className="reviews-grid">
-                <div className="review-card">
-                  <div className="review-header">
-                    <span className="reviewer-name">Sarah M.</span>
-                    <span className="review-rating">★★★★★</span>
-                  </div>
-                  <p className="review-text">"Amazing service and atmosphere! The staff was incredibly friendly and the food was delicious. Will definitely be coming back!"</p>
-                  <span className="review-time">2 days ago</span>
-                </div>
-                
-                <div className="review-card">
-                  <div className="review-header">
-                    <span className="reviewer-name">John D.</span>
-                    <span className="review-rating">★★★★</span>
-                  </div>
-                  <p className="review-text">"Great location and excellent menu options. Really enjoyed the experience overall. The only minor issue was parking."</p>
-                  <span className="review-time">1 week ago</span>
-                </div>
-                
-                <div className="review-card">
-                  <div className="review-header">
-                    <span className="reviewer-name">Emily R.</span>
-                    <span className="review-rating">★★★★★</span>
-                  </div>
-                  <p className="review-text">"The best service I've had in Cape Town! Everything was perfect from start to finish. Highly recommend!"</p>
-                  <span className="review-time">2 weeks ago</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Rest of existing modal content */}
-            <div className="location-details">
-              <h3>Location & Contact</h3>
-              <p><strong>Address:</strong> {business.formatted_address || business.vicinity}</p>
-              {business.compound_code && (
-                <p><strong>Area:</strong> {business.compound_code}</p>
-              )}
-              {business.formatted_phone_number && (
-                <p><strong>Phone:</strong> {business.formatted_phone_number}</p>
-              )}
-              {business.website && (
-                <p><strong>Website:</strong> <a href={business.website} target="_blank" rel="noopener noreferrer">Visit Website</a></p>
-              )}
-            </div>
-          </div>
-
-          <div className="detail-section">
-            {/* Business Status & Hours */}
-            <div className="status-details">
-              <h3>Business Information</h3>
-              {business.business_status && (
-                <p><strong>Status:</strong> {business.business_status}</p>
-              )}
-              {business.opening_hours && (
-                <div className="hours-info">
-                  <p>
-                    <strong>Hours:</strong> 
-                    <span className={`status-indicator ${business.opening_hours.open_now ? 'open' : 'closed'}`}>
-                      {business.opening_hours.open_now ? '✅ Open now' : '❌ Closed'}
-                    </span>
-                  </p>
-                  {business.opening_hours.weekday_text && (
-                    <div className="hours-list">
-                      {business.opening_hours.weekday_text.map((hours, idx) => (
-                        <p key={idx}>{hours}</p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Service Options */}
-            {business.service_options && Object.values(business.service_options).some(Boolean) && (
-              <div className="service-options">
-                <h3>Service Options</h3>
-                <div className="amenities-grid">
-                  {business.service_options.dine_in && <span>🍽️ Dine-in</span>}
-                  {business.service_options.takeout && <span>📦 Takeout</span>}
-                  {business.service_options.delivery && <span>🚚 Delivery</span>}
-                  {business.service_options.curbside_pickup && <span>🚗 Curbside Pickup</span>}
-                  {business.service_options.reservable && <span>📅 Reservations Available</span>}
-                </div>
-              </div>
-            )}
-
-            {/* Meal Service */}
-            {business.serves_meals && Object.values(business.serves_meals).some(Boolean) && (
-              <div className="meal-service">
-                <h3>Food & Drinks</h3>
-                <div className="amenities-grid">
-                  {business.serves_meals.breakfast && <span>🍳 Breakfast</span>}
-                  {business.serves_meals.lunch && <span>🥪 Lunch</span>}
-                  {business.serves_meals.dinner && <span>🍝 Dinner</span>}
-                  {business.serves_meals.vegetarian && <span>🥗 Vegetarian Options</span>}
-                  {business.serves_meals.beer && <span>🍺 Serves Beer</span>}
-                  {business.serves_meals.wine && <span>🍷 Serves Wine</span>}
-                </div>
-              </div>
-            )}
-
-            {/* Accessibility Section */}
-            <h3>Accessibility</h3>
-            <div className="amenities-grid">
-              {business.wheelchair_accessible && <span>♿ Wheelchair Accessible Entrance</span>}
-              {business.wheelchair_parking && <span>🅿️ Wheelchair Parking</span>}
-              {business.wheelchair_restroom && <span>🚻 Accessible Restroom</span>}
-            </div>
-
-            {/* General Amenities */}
-            <h3>Amenities & Features</h3>
-            <div className="amenities-grid">
-              {business.restroom && <span>🚻 Public Restroom</span>}
-              {business.public_transport && <span>🚌 Public Transport</span>}
-              {business.parking_available && <span>🅿️ Parking Available</span>}
-              {business.free_parking && <span>✨ Free Parking</span>}
-              {business.wheelchair_accessible && <span>♿ Wheelchair Accessible</span>}
-              {business.outdoor_seating && <span>🪑 Outdoor Seating</span>}
-              {business.takeout && <span>📦 Takeout Available</span>}
-              {business.delivery && <span>🚚 Delivery Available</span>}
-              {business.dine_in && <span>🍽️ Dine-in</span>}
-              {business.reservable && <span>📅 Accepts Reservations</span>}
-              {business.accepts_credit_cards && <span>💳 Accepts Credit Cards</span>}
-            </div>
-
-            {/* Family Features */}
-            {(business.good_for_children || business.family_friendly) && (
-              <>
-                <h3>Family Features</h3>
-                <div className="amenities-grid">
-                  {business.good_for_children && <span>👶 Good for Children</span>}
-                  {business.family_friendly && <span>👨‍👩‍👧‍👦 Family Friendly</span>}
-                </div>
-              </>
-            )}
-
-            {/* Top Reviews Section */}
-            {business.top_reviews && business.top_reviews.length > 0 && (
+            {/* Reviews Section Moved to Left Column */}
+            {business.top_reviews && business.top_reviews.length > 0 ? (
               <div className="reviews-section">
-                <h3>Top Reviews</h3>
+                <h3>Reviews</h3>
                 <div className="reviews-grid">
                   {business.top_reviews.map((review, index) => (
                     <div key={index} className="review-card">
@@ -557,9 +458,13 @@ function App() {
                   ))}
                 </div>
               </div>
+            ) : (
+              <p>No reviews available</p>
             )}
+          </div>
 
-            {/* Rest of the modal content */}
+          <div className="detail-section right-column">
+            {/* Business Info Moved to Right Column */}
             <div className="action-buttons">
               <button 
                 className="directions-button"
@@ -577,13 +482,29 @@ function App() {
               )}
             </div>
 
-            {/* Rating section remains at bottom */}
-            {business.rating && (
-              <div className="business-rating-detail">
-                <div className="rating-stars">
-                  <span className="stars">{'★'.repeat(Math.round(business.rating))}</span>
-                </div>
-                <span className="rating-count">({business.user_ratings_total} reviews)</span>
+            <div className="business-meta">
+              <p><strong>Address:</strong> {business.formatted_address || business.vicinity}</p>
+              {business.formatted_phone_number && (
+                <p><strong>Phone:</strong> {business.formatted_phone_number}</p>
+              )}
+              {business.website && (
+                <p><strong>Website:</strong> <a href={business.website} target="_blank" rel="noopener noreferrer">Visit Website</a></p>
+              )}
+            </div>
+
+            {business.opening_hours && (
+              <div className="hours-info">
+                <h3>Hours</h3>
+                <p className={`status-indicator ${business.opening_hours.open_now ? '✅ Open now' : '❌ Closed'}`}>
+                  {business.opening_hours.open_now ? '✅ Open now' : '❌ Closed'}
+                </p>
+                {business.opening_hours.weekday_text && (
+                  <div className="hours-list">
+                    {business.opening_hours.weekday_text.map((hours, idx) => (
+                      <p key={idx}>{hours}</p>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -592,12 +513,49 @@ function App() {
     </div>
   );
 
+  // New helper functions
+  const loadMoreResults = async () => {
+    setCurrentPage(prev => prev + 1);
+    // Implement pagination logic here
+  };
+
+  // Add personality selection handler
+  const handlePersonalityChange = (personality) => {
+    setAiPersonality(personality);
+    localStorage.setItem('aiPersonality', personality);
+  };
+
+  // Fix header layout
   return (
     <div className="App">
       <header className="header">
-        <img src={locallyBanner} alt="LOCALLY" style={{ maxWidth: '100%', height: 'auto' }} />
+        <div className="logo-container">
+          <img src={logo} alt="LOCALLY Logo" />
+        </div>
+        <form className="header-search" onSubmit={(e) => { e.preventDefault(); handleUserResponse(query); }}>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Find restaurants, coffee shops, hotels..."
+            disabled={isTyping}
+          />
+          <button type="submit" disabled={isTyping}>
+            {isTyping ? 'Searching...' : 'Search'}
+          </button>
+        </form>
+        <div className="ai-personality">
+          <select 
+            value={aiPersonality} 
+            onChange={(e) => handlePersonalityChange(e.target.value)}
+          >
+            <option value="professional">Professional & Efficient</option>
+            <option value="friendly">Friendly & Chatty</option>
+            <option value="fun">Hyped & Fun</option>
+          </select>
+        </div>
       </header>
-      
+
       <div className="chat-window">
         {messages.map((msg, index) => (
           <div key={index} className={`message ${msg.sender}`}>
@@ -606,20 +564,26 @@ function App() {
         ))}
         {isTyping && <TypingIndicator />}
       </div>
-      
-      <form onSubmit={(e) => { e.preventDefault(); handleUserResponse(query); }}>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Find restaurants, coffee shops, hotels..."
-          disabled={isTyping}
-        />
-        <button type="submit" disabled={isTyping}>
-          {isTyping ? 'Searching...' : 'Search'}
-        </button>
-      </form>
-      
+
+      {/* Show search history suggestions */}
+      {searchHistory.length > 0 && !businesses.length && (
+        <div className="search-history">
+          <h3>Recent Searches:</h3>
+          <div className="history-buttons">
+            {searchHistory.map((search, index) => (
+              <button 
+                key={index} 
+                onClick={() => handleUserResponse(search)}
+                className="history-item"
+              >
+                {search}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Business sorting and listing */}
       {businesses.length > 0 && (
         <div className="sort-options">
           <label htmlFor="sort">Sort by: </label>
@@ -642,6 +606,16 @@ function App() {
         ))}
       </div>
 
+      {/* Load more button */}
+      {businesses.length > 0 && (
+        <div className="load-more">
+          <button onClick={loadMoreResults}>
+            Load 20 More Results
+          </button>
+        </div>
+      )}
+
+      {/* Business details modal */}
       {selectedBusiness && (
         <BusinessModal 
           business={selectedBusiness} 

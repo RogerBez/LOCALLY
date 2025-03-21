@@ -19,51 +19,40 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const axios = require('axios');
+const { generateResponse } = require('./utils/agent');
+const { synthesizeSpeech, transcribeSpeech } = require('./utils/voice');
 
 const app = express();
 
-// Update CORS configuration with all possible frontend URLs
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5000',
-  'https://locally.vercel.app',
-  'https://locally-frontend.vercel.app',
-  'https://locally-frontend-4zt1fc4w8-the-marketing-teams-projects.vercel.app'
-];
-
+// Updated CORS configuration
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) === -1 || origin.endsWith('.vercel.app')) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
+  origin: '*',
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  allowedHeaders: ['Content-Type', 'Accept'],
+  credentials: false
 }));
 
-// Add CORS preflight handler
+// Add pre-flight handling
 app.options('*', cors());
 
-// Add explicit headers to all responses
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin) || origin?.endsWith('.vercel.app')) {
-    res.header('Access-Control-Allow-Origin', origin);
+app.use(bodyParser.json());
+
+// Add better JSON parsing error handling
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    console.error('JSON Parse Error:', {
+      message: err.message,
+      body: err.body,
+      type: err.type
+    });
+    return res.status(400).json({ 
+      error: 'Invalid JSON',
+      details: err.message,
+      help: 'Please check that your request body is valid JSON'
+    });
   }
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
-  res.header('Access-Control-Allow-Credentials', 'true');
   next();
 });
-
-// Middleware
-app.use(bodyParser.json());
 
 // Add logging middleware
 app.use((req, res, next) => {
@@ -71,9 +60,6 @@ app.use((req, res, next) => {
   console.log('📝 Request Body:', req.body);
   next();
 });
-
-// Preflight OPTIONS handler
-app.options('*', cors());
 
 // Test data
 const sampleBusinesses = [
@@ -86,6 +72,16 @@ const sampleBusinesses = [
         phone: "555-0123"
     }
 ];
+
+// Add before your routes
+app.get('/api/check-ip', (req, res) => {
+  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  console.log('🌐 Client IP:', clientIp);
+  res.json({ 
+    ip: clientIp,
+    headers: req.headers
+  });
+});
 
 // Update routes to use /api prefix
 app.get('/api/', (req, res) => {
@@ -378,7 +374,14 @@ app.post('/api/query', async (req, res, next) => {
       });
     }
 
-    res.json({ businesses });
+    // Generate AI response
+    const aiResponse = await generateResponse(req.body.query, businesses);
+    
+    res.json({ 
+        businesses,
+        message: aiResponse
+    });
+
   } catch (error) {
     console.error(`\n❌ [${requestId}] Error:`, {
       message: error.message,
@@ -386,6 +389,28 @@ app.post('/api/query', async (req, res, next) => {
       googleApiError: error.response?.data?.error_message
     });
     next(error);
+  }
+});
+
+// Add new routes for voice features
+app.post('/api/tts', async (req, res) => {
+  try {
+    const { text } = req.body;
+    const audioContent = await synthesizeSpeech(text);
+    res.set('Content-Type', 'audio/mp3');
+    res.send(audioContent);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/stt', async (req, res) => {
+  try {
+    const audioBuffer = Buffer.from(req.body.audio, 'base64');
+    const transcript = await transcribeSpeech(audioBuffer);
+    res.json({ transcript });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -404,23 +429,27 @@ app.use((req, res, next) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Error handling middleware - must be last
+// Update error handling middleware
 app.use((err, req, res, next) => {
   console.error('\n❌ Error:', {
     message: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-    response: err.response?.data
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
   
   res.status(err.status || 500).json({ 
-    message: 'Something went wrong!',
-    error: err.message,
-    details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    success: false,
+    message: err.message || 'Internal Server Error'
   });
 });
 
 // Add API health check function
 const checkGoogleAPIs = async () => {
+  // Validate API key first
+  if (!process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY.length < 20) {
+    console.error('❌ Invalid Google Maps API key configuration');
+    return false;
+  }
+
   const services = [
     {
       name: 'Places API',
@@ -431,38 +460,27 @@ const checkGoogleAPIs = async () => {
             location: '-33.8670522,151.1957362',
             radius: 1000,
             type: 'restaurant',
-            key: process.env.GOOGLE_MAPS_API_KEY
+            key: process.env.GOOGLE_MAPS_API_KEY.trim()
           };
-
-          console.log('\n🔍 Testing Places API:');
-          console.log('URL:', placesUrl);
-          console.log('Params:', { ...params, key: 'API_KEY_HIDDEN' });
 
           const response = await axios.get(placesUrl, { 
             params,
             headers: {
-              'User-Agent': 'LOCALLY-Service-Agent/1.0',
               'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest',
-              'Origin': 'http://localhost:5000',
-              'Referer': 'http://localhost:5000/'
-            }
+              'Content-Type': 'application/json'
+            },
+            validateStatus: (status) => status < 500
           });
 
-          console.log('Places API Response:', {
-            status: response.status,
-            apiStatus: response.data.status,
-            message: response.data.error_message || 'Success',
-            results: response.data.results?.length || 0
-          });
+          if (response.data.status === 'REQUEST_DENIED') {
+            throw new Error(response.data.error_message || 'API key invalid or unauthorized');
+          }
 
           return response.data.status === 'OK';
         } catch (error) {
           console.error('Places API Error:', {
-            status: error.response?.status,
-            data: error.response?.data,
-            message: error.message
+            message: error.message,
+            response: error.response?.data
           });
           return false;
         }
@@ -491,7 +509,6 @@ const checkGoogleAPIs = async () => {
             const errorText = Buffer.from(response.data).toString('utf8');
             console.log('Error Details:', errorText);
           }
-
           return response.status === 200;
         } catch (error) {
           console.error('Static Maps Error:', {
@@ -506,7 +523,6 @@ const checkGoogleAPIs = async () => {
   ];
 
   console.log('\n🔍 Checking Google APIs:');
-  
   for (const service of services) {
     try {
       const isWorking = await service.test();
@@ -517,45 +533,68 @@ const checkGoogleAPIs = async () => {
   }
 };
 
+// Add API validation function
+const validateGoogleAPIKey = async () => {
+  try {
+    const testUrl = 'https://maps.googleapis.com/maps/api/place/details/json';
+    const response = await axios.get(testUrl, {
+      params: {
+        place_id: 'ChIJN1t_tDeuEmsRUsoyG83frY4', // Test place ID
+        fields: 'name',
+        key: process.env.GOOGLE_MAPS_API_KEY
+      }
+    });
+
+    if (response.data.status === 'REQUEST_DENIED') {
+      throw new Error(`Google API Error: ${response.data.error_message}`);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('API Key Validation Failed:', error.message);
+    return false;
+  }
+};
+
+// Add IP check during startup
+const checkIP = async () => {
+  try {
+    const response = await axios.get('https://api.ipify.org?format=json');
+    console.log('\n🌐 Current IP Address:', response.data.ip);
+    console.log('Add this IP to Google Cloud Console API key restrictions if needed');
+  } catch (error) {
+    console.error('Could not fetch IP:', error.message);
+  }
+};
+
 // Start server
 const PORT = process.env.PORT || 5000;
 
-try {
-    const server = app.listen(PORT, async () => {
-        console.clear(); // Clear console
-        console.log('\n=================================');
-        console.log(`✅ Server running on http://localhost:${PORT}`);
-        
-        // Check environment
-        console.log('\n📂 Environment Check:');
-        console.log('API Key:', process.env.GOOGLE_MAPS_API_KEY ? '✅ Present' : '❌ Missing');
-        console.log('Node Environment:', process.env.NODE_ENV || 'development');
-        
-        // Check Google APIs
-        await checkGoogleAPIs();
-        
-        console.log('\n📍 Available Endpoints:');
-        console.log(`http://localhost:${PORT}/`);
-        console.log(`http://localhost:${PORT}/api/businesses`);
-        console.log(`http://localhost:${PORT}/check-api-key`);
-        console.log('=================================\n');
-    });
+const startServer = async () => {
+  try {
+    // Check IP first
+    await checkIP();
+    
+    // Validate API key before starting server
+    const isValidAPI = await validateGoogleAPIKey();
+    if (!isValidAPI) {
+      throw new Error('Invalid or unauthorized Google Maps API key');
+    }
 
-    // Handle server errors
-    server.on('error', (error) => {
-        console.error('Server error:', error);
+    // Start server
+    await new Promise((resolve, reject) => {
+      const server = app.listen(PORT, () => {
+        console.log(`\n✅ Server running on http://localhost:${PORT}`);
+        resolve();
+      });
+      
+      server.on('error', reject);
     });
+    
+  } catch (error) {
+    console.error('Failed to start server:', error.message);
+    process.exit(1);
+  }
+};
 
-    // Handle process events
-    process.on('SIGTERM', () => {
-        console.log('Server shutting down...');
-        server.close();
-    });
-
-    process.on('uncaughtException', (error) => {
-        console.error('Uncaught Exception:', error);
-    });
-
-} catch (error) {
-    console.error('Failed to start server:', error);
-}
+startServer();
