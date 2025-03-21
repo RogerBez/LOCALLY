@@ -185,10 +185,9 @@ function App() {
         },
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Origin': window.location.origin
         },
-        timeout: 10000,
-        validateStatus: (status) => status >= 200 && status < 500,
         withCredentials: true
       });
 

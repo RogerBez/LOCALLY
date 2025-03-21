@@ -27,6 +27,7 @@ const app = express();
 // Update CORS configuration
 const allowedOrigins = [
   'https://locally-frontend.vercel.app',
+  'https://locally-frontend-172s1h0pa-the-marketing-teams-projects.vercel.app',
   'http://localhost:3000',
   'http://localhost:5000'
 ];
@@ -36,19 +37,19 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('Blocked origin:', origin);
+      callback(new Error('CORS policy violation'));
     }
-    return callback(null, true);
   },
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
   credentials: true,
-  maxAge: 86400 // 24 hours
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
 }));
 
-// Preflight OPTIONS handler
+// Add CORS preflight
 app.options('*', cors());
 
 app.use(bodyParser.json());
