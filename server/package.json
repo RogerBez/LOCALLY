@@ -8,7 +8,7 @@
     "dev": "nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy-render": "npm install && cd server && npm install && cd ../client && npm install && npm run build && cd ..",
-    "kill": "node ../kill-ports.js"
+    "kill": "node scripts/kill-ports.js"
   },
   "dependencies": {
     "@google-cloud/speech": "^6.7.1",

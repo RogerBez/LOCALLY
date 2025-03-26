@@ -9,8 +9,8 @@ const path = require('path');
 const app = express();
 // Define allowed origins, including both Render and Vercel domains
 const corsOrigins = env.CORS_ORIGIN ? 
-  env.CORS_ORIGIN.split(',') : 
-  ['http://localhost:3000', 'https://locally-client.vercel.app', '*'];
+  env.CORS_ORIGIN.split(',').map(origin => origin.trim()) : 
+  ['http://localhost:3000', 'https://locally-frontend.vercel.app'];
 
 console.log('🔒 Configured CORS origins:', corsOrigins);
 
@@ -31,6 +31,23 @@ app.use(cors({
   allowedHeaders: ['Content-Type'],
   credentials: true
 }));
+
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin || corsOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`❌ Blocked by CORS: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type']
+}));
+
+// Add CORS preflight
+app.options('*', cors());
 
 app.use(express.json());
 
