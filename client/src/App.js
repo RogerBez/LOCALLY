@@ -372,7 +372,7 @@ function App() {
     try {
       // First check if the server is even running
       try {
-        const healthCheck = await fetch(`${API_URL}/api/health`);
+        const healthCheck = await fetch(`${API_URL}/health`);
         if (!healthCheck.ok) {
           throw new Error('Server health check failed');
         }

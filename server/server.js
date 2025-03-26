@@ -17,33 +17,22 @@ console.log('🔒 Configured CORS origins:', corsOrigins);
 app.use(cors({
   origin: function(origin, callback) {
     // Allow requests with no origin (like mobile apps, curl, etc)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log('✅ Allowing request with no origin');
+      return callback(null, true);
+    }
     
-    if (corsOrigins.indexOf(origin) !== -1 || corsOrigins.includes('*')) {
+    if (corsOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
       console.log(`✅ CORS allowed for origin: ${origin}`);
       callback(null, true);
     } else {
       console.warn(`❌ Origin ${origin} not allowed by CORS`);
-      callback(null, false);
-    }
-  },
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type'],
-  credentials: true
-}));
-
-app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin || corsOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn(`❌ Blocked by CORS: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true,
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type']
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 // Add CORS preflight
@@ -277,13 +266,36 @@ app.get('/api/search', async (req, res) => {
   }
 });
 
-// Also fix the health endpoint your frontend might be checking
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'healthy' });
+// Remove duplicate health endpoints and standardize them
+app.get(['/health', '/health'], (req, res) => {
+  const healthData = {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    version: '1.0.0',
+    endpoints: {
+      health: ['/health', '/health'],
+      places: '/api/places/*',
+      search: '/api/search',
+      test: '/api/test'
+    }
+  };
+
+  console.log('Health check requested:', {
+    timestamp: healthData.timestamp,
+    origin: req.headers.origin || 'No origin'
+  });
+
+  res.json(healthData);
 });
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'healthy' });
+// Add API test endpoint
+app.get('/api/test', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'API is working',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Add a direct /api/ai-chat endpoint as a fallback
