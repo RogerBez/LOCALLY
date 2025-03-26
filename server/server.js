@@ -7,11 +7,29 @@ const aiRoutes = require('./routes/aiRoutes');
 const apiRoutes = require('./routes/api');
 const path = require('path');
 const app = express();
+// Define allowed origins, including both Render and Vercel domains
+const corsOrigins = env.CORS_ORIGIN ? 
+  env.CORS_ORIGIN.split(',') : 
+  ['http://localhost:3000', 'https://locally-client.vercel.app', '*'];
+
+console.log('🔒 Configured CORS origins:', corsOrigins);
 
 app.use(cors({
-  origin: env.CORS_ORIGIN,
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc)
+    if (!origin) return callback(null, true);
+    
+    if (corsOrigins.indexOf(origin) !== -1 || corsOrigins.includes('*')) {
+      console.log(`✅ CORS allowed for origin: ${origin}`);
+      callback(null, true);
+    } else {
+      console.warn(`❌ Origin ${origin} not allowed by CORS`);
+      callback(null, false);
+    }
+  },
   methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type']
+  allowedHeaders: ['Content-Type'],
+  credentials: true
 }));
 
 app.use(express.json());
@@ -20,6 +38,25 @@ app.use(express.json());
 app.use('/api/places', placesRoutes);
 app.use('/api', apiRoutes);  // Generic API routes
 app.use('/api', aiRoutes);   // AI-specific routes
+
+// Add this test endpoint to check CORS configuration
+app.get('/api/cors-test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'CORS is correctly configured',
+    timestamp: new Date().toISOString(),
+    cors: {
+      allowed_origins: corsOrigins,
+      request_origin: req.headers.origin || 'No origin header',
+      env_cors_origin: env.CORS_ORIGIN
+    },
+    headers_received: {
+      origin: req.headers.origin,
+      host: req.headers.host,
+      referer: req.headers.referer
+    }
+  });
+});
 
 /**
  * Map image proxy endpoint - keeps API keys secure server-side
