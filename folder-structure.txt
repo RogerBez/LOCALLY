@@ -1,0 +1,19 @@
+C:\USERS\ROGER\PROJECTS\LOCALSERVICEAGENT
+|   .env
+|   package.json
+|   
++---client
+|   |   App.js
+|   |   index.js
+|   |   
+|   \---components
+|       |   BusinessCard.js
+|       |   BusinessCard.css
+|       |   MapComponent.js
+|       |
+|
+\---server
+    |   index.js
+    |   
+    \---types
+            place.types.ts

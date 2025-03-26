@@ -30,8 +30,11 @@ yarn-error.log*
 .env.production.local
 .env.development
 .env.production
+google-credentials.json
 
 # Only if using Firebase
 .firebase/
 .firebaserc
 firebase-debug.log
+# Environment files
+

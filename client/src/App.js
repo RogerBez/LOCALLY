@@ -1,619 +1,626 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import locallyBanner from './Assets/LOCALLY BANNER.jpg';
-import logo from './LOGO.png';  // Update import to match actual filename case
-import './App.css';
+import styled from 'styled-components';
+import BusinessCards from './components/BusinessCard';
+import AIChat from './components/AIChat';
+import AIAgentSelector from './components/AIAgentSelector';  // Moved to the top
+import DebugAIChat from './components/DebugAIChat'; // Add this import
+import { FaSearch, FaMapMarkerAlt } from 'react-icons/fa';
+import logo from './Assets/logo.jpeg';
 
-// Update API URL configuration to handle environments correctly
-const API_URL = process.env.NODE_ENV === 'production'
-  ? 'https://locally-server.onrender.com/api'  // Production backend
-  : 'http://localhost:5000/api';               // Local development
+// Styled Components for Landing Page
+const PageContainer = styled.div`
+  min-height: 100vh;
+  background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+`;
 
-console.log("Environment:", process.env.NODE_ENV);
-console.log("Backend URL:", API_URL);
+const Card = styled.div`
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 700px;
+  text-align: center;
+`;
 
-// Add detailed environment logging
-console.log("🔧 Environment Details:", {
-  nodeEnv: process.env.NODE_ENV,
-  apiUrl: API_URL,
-  isProd: process.env.NODE_ENV === 'production'
-});
+// MODIFIED: Updated search form to be more responsive
+const SearchForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  margin-top: 2rem;
+`;
 
-// Helper function to calculate distance between two coordinates
-const computeDistance = (lat1, lon1, lat2, lon2) => {
-  const toRad = (angle) => (Math.PI * angle) / 180;
-  const R = 6371; // Radius of Earth in km
-
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lat1 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return (R * c).toFixed(2); // Distance in km, rounded to 2 decimal places
-};
-
-// Generate conversational responses based on query and results
-const generateConversationalResponse = (query, businesses) => {
-  // No results found
-  if (businesses.length === 0) {
-    const noResultsResponses = [
-      `I've looked everywhere, but I couldn't find any matches for "${query}". Maybe try a different search term?`,
-      `Hmm, I don't see any businesses matching "${query}" in your area. Would you like to try something else?`,
-      `I searched high and low, but couldn't find any "${query}" nearby. Perhaps try a broader search term?`,
-      `Sorry, I couldn't find any results for "${query}". Is there something else you're interested in finding?`
-    ];
-    return noResultsResponses[Math.floor(Math.random() * noResultsResponses.length)];
+const SearchRow = styled.div`
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
   }
+`;
 
-  // Results found
-  const businessType = query.toLowerCase();
-  const count = businesses.length;
-  const topRated = businesses[0].name;
-  const closest = [...businesses].sort((a, b) => (a.distance || 99999) - (b.distance || 99999))[0].name;
+const InputGroup = styled.div`
+  position: relative;
+  flex: 1;
+  min-width: ${props => props.$locationField ? '180px' : '250px'};
+  
+  @media (max-width: 768px) {
+    min-width: 100%;
+  }
+`;
 
-  const successResponses = [
-    `Great news! I found ${count} ${businessType} options near you. ${topRated} is highly rated, and ${closest} is the closest to you. Take a look below!`,
-    `I've discovered ${count} ${businessType} places in your area! If you're looking for quality, check out ${topRated}. Need something close by? ${closest} might be your best bet.`,
-    `Found ${count} great ${businessType} options for you! People seem to love ${topRated}, and ${closest} is just a short distance away. Let me know if any catch your eye!`,
-    `Success! Here are ${count} ${businessType} places near you. I'd recommend checking out ${topRated} based on ratings, or ${closest} if you're in a hurry. Hope these help!`
-  ];
+const InputIcon = styled.span`
+  position: absolute;
+  top: 50%;
+  left: 1rem;
+  transform: translateY(-50%);
+  color: #aaa;
+  pointer-events: none;
+`;
 
-  return successResponses[Math.floor(Math.random() * successResponses.length)];
-};
+const Input = styled.input`
+  width: 100%;
+  padding: 1rem 1rem 1rem 2.5rem;
+  border-radius: 10px;
+  border: 2px solid #eee;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+  
+  &:focus {
+    outline: none;
+    border-color: #2196F3;
+  }
+`;
 
-// Define taglines outside of functions so it's available throughout the component
-const taglines = [
-  "Search far and wide.",
-  "Find hidden gems.",
-  "Explore more.",
-  "Discover cool stuff."
-];
+const Button = styled.button`
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 1rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+  width: 100%;
+  
+  &:hover {
+    background: #1976D2;
+  }
+`;
 
-// Update welcome message function to use the shared taglines array
-const getWelcomeMessage = () => {
-  const randomTagline = taglines[Math.floor(Math.random() * taglines.length)];
-  return `${randomTagline} Tell me what you're searching for, and I'll find the best options near you!`;
-};
+const Header = styled.header`
+  background-color: #2196F3;
+  color: white;
+  padding: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const BackButton = styled.button`
+  background: none;
+  border: none;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
+const LoadingContainer = styled.div`
+  text-align: center;
+  padding: 50px;
+`;
+
+const Spinner = styled.div`
+  width: 50px;
+  height: 50px;
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #2196F3;
+  border-radius: 50%;
+  margin: 0 auto;
+  animation: spin 2s linear infinite;
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+
+// Logo styled component - Updated size
+const Logo = styled.img`
+  height: 80px; /* Increased size */
+  margin: 0 auto; /* Center horizontally */
+  display: block; /* Make it a block element to enable margin centering */
+  
+  @media (max-width: 768px) {
+    height: 60px;
+  }
+`;
 
 function App() {
   const [businesses, setBusinesses] = useState([]);
-  const [messages, setMessages] = useState([]);
-  const [query, setQuery] = useState("");
-  const [location, setLocation] = useState(null);
-  const [sortOption, setSortOption] = useState("relevance");
-  const [isTyping, setIsTyping] = useState(false);
-  const [selectedBusiness, setSelectedBusiness] = useState(null);
-  const [aiPersonality, setAiPersonality] = useState(localStorage.getItem('aiPersonality') || 'professional');
-  const [searchHistory, setSearchHistory] = useState(JSON.parse(localStorage.getItem('searchHistory') || '[]'));
-  const [currentPage, setCurrentPage] = useState(1);
-  const [followUpQuestion, setFollowUpQuestion] = useState(null);
-  const [filteredBusinesses, setFilteredBusinesses] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [showLanding, setShowLanding] = useState(true);
+  const [searchParams, setSearchParams] = useState({
+    lat: null,
+    lng: null,
+    query: ''
+  });
+  
+  // Add this for Step 6: AI Agent Style
+  const [aiAgentStyle, setAIAgentStyle] = useState(
+    localStorage.getItem('preferredAIAgent') || 'casual'
+  );
 
-  // Removed unused chatEndRef
-
-  // Get user's location on component mount
+  // Get user's geolocation on mount
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const loc = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          };
-          console.log("📍 Location received:", loc);
-          setLocation(loc);
-        },
-        (error) => {
-          console.error("❌ Geolocation error:", {
-            code: error.code,
-            message: error.message
-          });
-          setMessages((prev) => [
-            ...prev,
-            { sender: "agent", text: "I need access to your location to find nearby businesses. Could you please enable location services so I can help you better?" }
-          ]);
-        }
-      );
-    } else {
-      console.error("Geolocation is not supported by this browser.");
-      setMessages((prev) => [
-        ...prev,
-        { sender: "agent", text: "It looks like your browser doesn't support geolocation. To get the best experience, could you try using a different browser like Chrome or Firefox?" }
-      ]);
-    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setSearchParams(prev => ({
+          ...prev,
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        }));
+      },
+      (error) => {
+        console.error('❌ Location error:', error);
+        // Default to Cape Town coordinates if geolocation fails
+        setSearchParams(prev => ({
+          ...prev,
+          lat: -33.882112,
+          lng: 18.497536
+        }));
+      },
+      { enableHighAccuracy: true }
+    );
   }, []);
-
-  // Fetch initial businesses
-  useEffect(() => {
-    // Only try to fetch businesses if we have a valid API URL
-    if (API_URL) {
-      console.log("Fetching businesses from:", `${API_URL}/query`);
-      // Set a conversational welcome message
-      setMessages([{ 
-        sender: "agent", 
-        text: getWelcomeMessage()
-      }]);
-    }
-  }, []);
-
-  // Enhanced scroll behavior
-  useEffect(() => {
-    const chatWindow = document.querySelector('.chat-window');
-    if (chatWindow) {
-      chatWindow.scrollTop = chatWindow.scrollHeight;
-    }
-  }, [messages, isTyping]); // Scroll on new messages or typing indicator changes
-
-  // Update axios request with proper headers
-  const handleUserResponse = async (userInput) => {
-    console.log("🚀 Starting search request:", {
-      query: userInput,
-      location: location,
-      apiEndpoint: `${API_URL}/query`
-    });
-
-    if (!userInput.trim()) return;
-    
-    setMessages((prev) => [...prev, { sender: "user", text: userInput }]);
-    setQuery("");
-
-    if (!location) {
-      setMessages((prev) => [
-        ...prev,
-        { sender: "agent", text: "I'd love to help you find that, but I'll need your location first. Could you please enable location access in your browser settings?" }
-      ]);
+  
+  // Function to fetch businesses with better error handling
+  const fetchBusinesses = async (params) => {
+    if (!params.query) {
+      setError('Please enter a search query');
       return;
     }
-
-    // Show typing indicator during the entire search process
-    setIsTyping(true);
-
+    
+    if (!params.lat || !params.lng) {
+      setError('Location not available. Please allow location access or enter coordinates manually.');
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+    const endpoint = `${API_URL}/api/search`; // Use the search endpoint
+    
+    // Build query string
+    const queryString = new URLSearchParams({
+      query: params.query,
+      lat: params.lat,
+      lng: params.lng
+    }).toString();
+    
+    const url = `${endpoint}?${queryString}`;
+    
+    console.log('🔍 Fetching from:', url);
+    
     try {
-      console.log("📤 Sending request to server...");
-      const res = await axios({
-        method: 'post',
-        url: `${API_URL}/query`,
-        data: {
-          query: userInput,
-          latitude: location.latitude,
-          longitude: location.longitude,
-          aiPersonality,
-          searchHistory
-        },
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': window.location.origin
-        },
-        withCredentials: false // Change to false if not using credentials
-      });
-
-      // Enhanced response logging
-      console.log("\n📥 Server Response Details:");
-      console.log("---------------------------");
-      console.log(`Status: ${res.status}`);
-      console.log(`Total Results: ${res.data?.businesses?.length || 0}`);
-      
-      // Log first business details if available
-      if (res.data?.businesses?.[0]) {
-        const firstBusiness = res.data.businesses[0];
-        console.log("\n🏪 First Business Details:");
-        console.log("---------------------------");
-        console.log(`Name: ${firstBusiness.name}`);
-        console.log(`Address: ${firstBusiness.formatted_address || firstBusiness.vicinity}`);
-        console.log(`Rating: ${firstBusiness.rating} (${firstBusiness.user_ratings_total} reviews)`);
-        console.log(`Location: ${firstBusiness.latitude}, ${firstBusiness.longitude}`);
-        console.log(`Open Now: ${firstBusiness.opening_hours?.open_now ? '✅' : '❌'}`);
-        
-        // Log available amenities - Fix duplicate declaration
-        const amenities = [];
-        if (firstBusiness.wheelchair_accessible) amenities.push('♿ Wheelchair Accessible');
-        if (firstBusiness.outdoor_seating) amenities.push('🪑 Outdoor Seating');
-        if (firstBusiness.delivery) amenities.push('🚚 Delivery');
-        if (firstBusiness.takeout) amenities.push('📦 Takeout');
-        
-        if (amenities.length > 0) {
-          console.log("\nAmenities Available:", amenities.join(', '));
+      // First check if the server is even running
+      try {
+        const healthCheck = await fetch(`${API_URL}/api/health`);
+        if (!healthCheck.ok) {
+          throw new Error('Server health check failed');
         }
+        console.log('✅ Server health check passed');
+      } catch (healthError) {
+        console.error('❌ Server health check failed:', healthError);
+        setError('Server appears to be offline. Please check that your backend is running.');
+        setLoading(false);
+        return;
       }
-
-      let businessesWithDistance = res.data.businesses.map((biz) => ({
-        ...biz,
-        distance: biz.latitude && biz.longitude 
-          ? computeDistance(location.latitude, location.longitude, parseFloat(biz.latitude), parseFloat(biz.longitude)) 
-          : 99999
-      }));
-
-      let sortedBusinesses = [...businessesWithDistance];
-      if (sortOption === "rating") {
-        sortedBusinesses.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-      } else if (sortOption === "distance") {
-        sortedBusinesses.sort((a, b) => (a.distance || 99999) - (b.distance || 99999));
-      }
-
-      setBusinesses(sortedBusinesses);
       
-      // Use the AI-generated message from the response
-      setMessages((prev) => [
-        ...prev, 
-        { 
-          sender: "agent", 
-          text: res.data.message || generateConversationalResponse(userInput, sortedBusinesses)
+      // Make the actual API request
+      const response = await fetch(url);
+      
+      // Log response details for debugging
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      // Handle non-200 responses
+      if (!response.ok) {
+        // Try to get error details if available
+        let errorDetails;
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+          errorDetails = await response.json();
+          console.error('📡 Error response body (JSON):', errorDetails);
+        } else {
+          errorDetails = await response.text();
+          console.error('📡 Error response body (text):', errorDetails);
         }
-      ]);
-
-      // Update search history
-      const newHistory = [userInput, ...searchHistory].slice(0, 5);
-      setSearchHistory(newHistory);
-      localStorage.setItem('searchHistory', JSON.stringify(newHistory));
-
-      // Set follow-up question if one is returned
-      if (res.data.followUpQuestion) {
-        setFollowUpQuestion(res.data.followUpQuestion);
+        
+        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
       }
-
+      
+      // Check content type to avoid parsing errors
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('📡 Unexpected content type:', contentType);
+        const text = await response.text();
+        console.error('📡 Response text:', text);
+        throw new Error('Server did not return JSON data');
+      }
+      
+      // Parse JSON response
+      const data = await response.json();
+      console.log('📊 Received data:', data);
+      
+      // Update state with businesses - handle different response formats
+      if (data.businesses && Array.isArray(data.businesses)) {
+        setBusinesses(data.businesses);
+        if (data.businesses.length > 0) {
+          setShowLanding(false);
+        }
+      } else if (Array.isArray(data)) {
+        // Handle case where response is an array directly (for compatibility with old endpoint)
+        setBusinesses(data);
+        if (data.length > 0) {
+          setShowLanding(false);
+        }
+      } else if (data.success && data.businesses) {
+        // For the success:true format
+        setBusinesses(data.businesses);
+        if (data.businesses.length > 0) {
+          setShowLanding(false);
+        }
+      } else {
+        console.warn('⚠️ Data format unexpected:', data);
+        setBusinesses([]);
+      }
     } catch (error) {
-      console.error("\n❌ Request Failed:", {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        headers: error.response?.headers
-      });
-      setMessages((prev) => [
-        ...prev,
-        { 
-          sender: "agent", 
-          text: error.response?.data?.message || 
-                "Sorry, I'm having trouble connecting to the server. Please try again in a moment." 
-        }
-      ]);
+      console.error('❌ Fetch error:', error);
+      setError(`Error fetching data: ${error.message}`);
+      setBusinesses([]);
     } finally {
-      // Hide typing indicator after search is complete
-      setIsTyping(false);
+      setLoading(false);
     }
   };
-
-  const handleFollowUpResponse = async (type, value) => {
-    try {
-        const response = await axios.post(`${API_URL}/query/follow-up`, {
-            type,
-            value,
-            originalQuery: query,
-            businesses
-        });
-
-        setBusinesses(response.data.businesses);
-        setMessages(prev => [...prev, 
-            { sender: 'user', text: `Yes, show me ${type === 'rating' ? `${value}+ star places` : type === 'distance' ? `places within ${value}km` : value === 'outdoor' ? 'places with outdoor seating' : 'more options'}` },
-            { sender: 'agent', text: response.data.message }
-        ]);
-        setFollowUpQuestion(null);
-    } catch (error) {
-        console.error('Follow-up error:', error);
-    }
-  };
-
-  const handleSort = (e) => {
-    const option = e.target.value;
-    setSortOption(option);
+  
+  // Add this for Step 4: Filter businesses based on AI recommendations
+  const handleFilterBusinesses = (filterAction) => {
+    if (!filterAction || !businesses.length) return;
     
-    let sortedData = [...businesses];
+    let filteredBusinesses = [...businesses];
     
-    switch(option) {
-      case 'rating':
-        sortedData.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        break;
-      case 'reviews':
-        sortedData.sort((a, b) => (b.user_ratings_total || 0) - (a.user_ratings_total || 0));
-        break;
-      case 'name':
-        sortedData.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      default: // Keep original order for 'relevance'
-        break;
+    if (filterAction.type === 'sort') {
+      filteredBusinesses.sort((a, b) => {
+        if (filterAction.order === 'asc') {
+          return a[filterAction.field] - b[filterAction.field];
+        } else {
+          return b[filterAction.field] - a[filterAction.field];
+        }
+      });
+    } 
+    else if (filterAction.type === 'filter') {
+      filteredBusinesses = filteredBusinesses.filter(business => {
+        const value = business[filterAction.field];
+        
+        switch(filterAction.operator) {
+          case 'eq': return value === filterAction.value;
+          case 'gt': return value > filterAction.value;
+          case 'gte': return value >= filterAction.value;
+          case 'lt': return value < filterAction.value;
+          case 'lte': return value <= filterAction.value;
+          default: return true;
+        }
+      });
     }
     
-    setBusinesses(sortedData);
+    setBusinesses(filteredBusinesses);
   };
-
-  // Add modal handlers
-  const openBusinessDetails = (business) => {
-    setSelectedBusiness(business);
+  
+  // Handle landing page search
+  const handleLandingSearch = (query, location) => {
+    // This function will be called from the landing page
+    setSearchParams(prevParams => ({
+      ...prevParams,
+      query,
+      locationName: location // Store the location name for display
+    }));
+    
+    fetchBusinesses({
+      ...searchParams,
+      query
+    });
   };
-
-  const closeBusinessDetails = () => {
-    setSelectedBusiness(null);
+  
+  // Search form handler for results page
+  const handleSearch = (event) => {
+    event.preventDefault();
+    fetchBusinesses(searchParams);
   };
-
-  // Typing indicator component
-  const TypingIndicator = () => (
-    <div 
-      style={{
-        padding: '8px 12px',
-        margin: '8px 0',
-        borderRadius: '8px',
-        maxWidth: '80%',
-        backgroundColor: '#f0f0f0',
-        display: 'flex',
-        alignItems: 'center'
-      }}
-    >
-      <div style={{ marginRight: '8px' }}><b>Agent:</b></div>
-      <div className="typing-indicator" style={{ display: 'flex', alignItems: 'center' }}>
-        <div 
-          style={{ 
-            height: '8px', 
-            width: '8px', 
-            borderRadius: '50%', 
-            backgroundColor: '#888', 
-            margin: '0 2px',
-            animation: 'typing-dot 1.4s infinite ease-in-out both',
-            animationDelay: '0s'
-          }} 
-        />
-        <div 
-          style={{ 
-            height: '8px', 
-            width: '8px', 
-            borderRadius: '50%', 
-            backgroundColor: '#888', 
-            margin: '0 2px',
-            animation: 'typing-dot 1.4s infinite ease-in-out both',
-            animationDelay: '0.2s'
-          }} 
-        />
-        <div 
-          style={{ 
-            height: '8px', 
-            width: '8px', 
-            borderRadius: '50%', 
-            backgroundColor: '#888', 
-            margin: '0 2px',
-            animation: 'typing-dot 1.4s infinite ease-in-out both',
-            animationDelay: '0.4s'
-          }} 
-        />
-      </div>
-      <style>
-        {`
-          @keyframes typing-dot {
-            0%, 80%, 100% { transform: scale(0); }
-            40% { transform: scale(1); }
-          }
-        `}
-      </style>
-    </div>
-  );
-
-  // Business card component
-  const BusinessCard = ({ business, onReadMore }) => (
-    <div className="business-card">
-      <div className="business-image">
-        {business.photos && business.photos[0] && (
-          <img
-            src={business.photos[0].url}
-            alt={business.name}
-            onError={(e) => {
-              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzY2NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlIEF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
-            }}
-          />
-        )}
-      </div>
-      <div className="business-info">
-        <h2>{business.name}</h2>
-        {business.rating && (
-          <div className="business-rating">
-            <span className="stars">{'★'.repeat(Math.round(business.rating))}</span>
-            <span className="rating-count">({business.user_ratings_total} reviews)</span>
-          </div>
-        )}
-        <button className="directions-button" onClick={() => onReadMore(business)}>
-          Read More
-        </button>
-      </div>
-    </div>
-  );
-
-  // Business Modal Component
-  const BusinessModal = ({ business, onClose }) => (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
-        <button className="modal-close" onClick={onClose}>×</button>
-        <div className="business-details">
-          <div className="detail-section left-column">
-            <h2>{business.name}</h2>
+  
+  // Update search parameters
+  const handleInputChange = (event) => {
+    const { name, value } = event.target;
+    setSearchParams(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  // Reset to landing page
+  const handleReset = () => {
+    setShowLanding(true);
+    setBusinesses([]);
+  };
+  
+  if (showLanding) {
+    return (
+      <PageContainer>
+        <Card>
+          {/* Centered logo without text */}
+          <Logo src={logo} alt="Local Service Agent Logo" />
+          
+          {/* MODIFIED: Restructured search form */}
+          <SearchForm onSubmit={(e) => {
+            e.preventDefault();
+            handleLandingSearch(searchParams.query, "Current Location");
+          }}>
+            <SearchRow>
+              <InputGroup>
+                <InputIcon><FaSearch /></InputIcon>
+                <Input 
+                  type="text" 
+                  placeholder="What are you looking for?" 
+                  value={searchParams.query}
+                  onChange={(e) => setSearchParams(prev => ({...prev, query: e.target.value}))}
+                  required
+                />
+              </InputGroup>
+              
+              <InputGroup $locationField>
+                <InputIcon><FaMapMarkerAlt /></InputIcon>
+                <Input 
+                  type="text" 
+                  value="Current Location"
+                  disabled
+                  placeholder="Using your location" 
+                />
+              </InputGroup>
+            </SearchRow>
             
-            {business.photos?.[0] && (
-              <img src={business.photos[0].url} alt={business.name} className="business-photo" />
-            )}
-
-            {/* Reviews Section Moved to Left Column */}
-            {business.top_reviews && business.top_reviews.length > 0 ? (
-              <div className="reviews-section">
-                <h3>Reviews</h3>
-                <div className="reviews-grid">
-                  {business.top_reviews.map((review, index) => (
-                    <div key={index} className="review-card">
-                      <div className="review-header">
-                        <span className="reviewer-name">{review.author_name}</span>
-                        <span className="review-rating">{'★'.repeat(review.rating)}</span>
-                      </div>
-                      <p className="review-text">{review.text}</p>
-                      <span className="review-time">{review.relative_time}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p>No reviews available</p>
-            )}
-          </div>
-
-          <div className="detail-section right-column">
-            {/* Business Info Moved to Right Column */}
-            <div className="action-buttons">
-              <button 
-                className="directions-button"
-                onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(business.name)}&query_place_id=${business.place_id}`, '_blank')}
-              >
-                Get Directions
-              </button>
-              {business.formatted_phone_number && (
-                <button 
-                  className="call-button"
-                  onClick={() => window.open(`tel:${business.formatted_phone_number}`)}
-                >
-                  📞 Call Business
-                </button>
-              )}
+            <Button type="submit" disabled={loading || !searchParams.lat}>
+              {loading ? 'Searching...' : 'Search'}
+            </Button>
+          </SearchForm>
+          
+          {error && (
+            <div style={{ 
+              backgroundColor: '#FFEBEE', 
+              color: '#D32F2F', 
+              padding: '1rem', 
+              borderRadius: '8px', 
+              marginTop: '1rem',
+              textAlign: 'left'
+            }}>
+              <p style={{ fontWeight: 'bold' }}>Error</p>
+              <p>{error}</p>
             </div>
-
-            <div className="business-meta">
-              <p><strong>Address:</strong> {business.formatted_address || business.vicinity}</p>
-              {business.formatted_phone_number && (
-                <p><strong>Phone:</strong> {business.formatted_phone_number}</p>
-              )}
-              {business.website && (
-                <p><strong>Website:</strong> <a href={business.website} target="_blank" rel="noopener noreferrer">Visit Website</a></p>
-              )}
+          )}
+          
+          {!searchParams.lat && !error && (
+            <div style={{ 
+              marginTop: '1rem',
+              backgroundColor: '#E3F2FD', 
+              color: '#1976D2', 
+              padding: '0.5rem', 
+              borderRadius: '8px',
+            }}>
+              <p>Acquiring your location...</p>
+              <Spinner style={{ width: '25px', height: '25px', margin: '0.5rem auto' }} />
             </div>
-
-            {business.opening_hours && (
-              <div className="hours-info">
-                <h3>Hours</h3>
-                <p className={`status-indicator ${business.opening_hours.open_now ? '✅ Open now' : '❌ Closed'}`}>
-                  {business.opening_hours.open_now ? '✅ Open now' : '❌ Closed'}
-                </p>
-                {business.opening_hours.weekday_text && (
-                  <div className="hours-list">
-                    {business.opening_hours.weekday_text.map((hours, idx) => (
-                      <p key={idx}>{hours}</p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+          )}
+          
+          {/* Add Step 6: AI Agent Selector on the landing page */}
+          <div style={{ marginTop: '2rem', borderTop: '1px solid #eee', paddingTop: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Personalize Your Experience</h3>
+            <AIAgentSelector 
+              currentAgent={aiAgentStyle} 
+              onSelect={setAIAgentStyle} 
+            />
           </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // New helper functions
-  const loadMoreResults = async () => {
-    setCurrentPage(prev => prev + 1);
-    // Implement pagination logic here
-  };
-
-  // Add personality selection handler
-  const handlePersonalityChange = (personality) => {
-    setAiPersonality(personality);
-    localStorage.setItem('aiPersonality', personality);
-  };
-
-  // Fix header layout
+        </Card>
+      </PageContainer>
+    );
+  }
+  
   return (
-    <div className="App">
-      <header className="header">
-        <div className="logo-container">
-          <img src={logo} alt="LOCALLY Logo" />
-        </div>
-        <form className="header-search" onSubmit={(e) => { e.preventDefault(); handleUserResponse(query); }}>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Find restaurants, coffee shops, hotels..."
-            disabled={isTyping}
-          />
-          <button type="submit" disabled={isTyping}>
-            {isTyping ? 'Searching...' : 'Search'}
-          </button>
+    <div>
+      {/* Centered logo in header, removed text */}
+      <Header>
+        <BackButton onClick={handleReset}>
+          ← New Search
+        </BackButton>
+        
+        <Logo 
+          src={logo} 
+          alt="Local Service Agent Logo" 
+          style={{ 
+            height: '40px', 
+            margin: '0 auto',
+            position: 'absolute',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            filter: 'brightness(0) invert(1)' 
+          }} 
+        />
+        
+        <div style={{ width: '100px' }}></div> {/* For spacing/balance */}
+      </Header>
+      
+      {/* MODIFIED: Restructured search form for results page */}
+      <div style={{ backgroundColor: '#f4f6f9', padding: '1rem' }}>
+        <form onSubmit={handleSearch} style={{ 
+          maxWidth: '800px', 
+          margin: '0 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <InputGroup style={{ flex: '2', minWidth: '250px' }}>
+              <InputIcon><FaSearch /></InputIcon>
+              <Input
+                type="text"
+                name="query"
+                value={searchParams.query}
+                onChange={handleInputChange}
+                placeholder="Search for services..."
+              />
+            </InputGroup>
+            
+            <InputGroup $locationField style={{ flex: '1', minWidth: '150px' }}>
+              <InputIcon><FaMapMarkerAlt /></InputIcon>
+              <Input 
+                type="text" 
+                value="Current Location"
+                disabled
+                placeholder="Using your location" 
+              />
+            </InputGroup>
+          </div>
+          
+          <Button type="submit" disabled={loading}>
+            {loading ? 'Searching...' : 'Search'}
+          </Button>
         </form>
-        <div className="ai-personality">
-          <label htmlFor="ai-personality-select">Choose your AI AGENT:</label>
-          <select 
-            id="ai-personality-select"
-            value={aiPersonality} 
-            onChange={(e) => handlePersonalityChange(e.target.value)}
-          >
-            <option value="professional">Professional & Efficient</option>
-            <option value="friendly">Friendly & Chatty</option>
-            <option value="fun">Hyped & Fun</option>
-          </select>
-        </div>
-      </header>
-
-      <div className="chat-window">
-        {messages.map((msg, index) => (
-          <div key={index} className={`message ${msg.sender}`}>
-            {msg.text}
-          </div>
-        ))}
-        {isTyping && <TypingIndicator />}
       </div>
-
-      {/* Show search history suggestions */}
-      {searchHistory.length > 0 && !businesses.length && (
-        <div className="search-history">
-          <h3>Recent Searches:</h3>
-          <div className="history-buttons">
-            {searchHistory.map((search, index) => (
-              <button 
-                key={index} 
-                onClick={() => handleUserResponse(search)}
-                className="history-item"
-              >
-                {search}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Business sorting and listing */}
-      {businesses.length > 0 && (
-        <div className="sort-options">
-          <label htmlFor="sort">Sort by: </label>
-          <select id="sort" value={sortOption} onChange={handleSort}>
-            <option value="distance">Distance</option>
-            <option value="relevance">Relevance</option>
-            <option value="rating">Rating</option>
-            <option value="reviews">Number of Reviews</option>
-            <option value="name">Name</option>
-          </select>
+      
+      {/* Show current search query */}
+      {!loading && searchParams.query && (
+        <div style={{ 
+          maxWidth: '800px', 
+          margin: '1rem auto',
+          textAlign: 'center',
+          fontWeight: '500',
+          color: '#555'
+        }}>
+          Showing results for: "{searchParams.query}"
         </div>
       )}
       
-      <div className="business-list">
-        {businesses.map((business) => (
-          <BusinessCard 
-            key={business.place_id} 
-            business={business} 
-            onReadMore={openBusinessDetails} 
-          />
-        ))}
-      </div>
-
-      {/* Load more button */}
-      {businesses.length > 0 && (
-        <div className="load-more">
-          <button onClick={loadMoreResults}>
-            Load 20 More Results
+      {/* Error display */}
+      {error && (
+        <div style={{ 
+          maxWidth: '800px', 
+          margin: '1rem auto', 
+          padding: '0.75rem', 
+          backgroundColor: '#FFEBEE', 
+          border: '1px solid #FFCDD2', 
+          color: '#D32F2F',
+          borderRadius: '8px' 
+        }}>
+          <p style={{ fontWeight: 'bold' }}>Error</p>
+          <p>{error}</p>
+          <button 
+            onClick={() => setError(null)}
+            style={{ 
+              marginTop: '0.5rem', 
+              fontSize: '0.875rem', 
+              color: '#D32F2F', 
+              textDecoration: 'underline',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            Dismiss
           </button>
         </div>
       )}
-
-      {/* Business details modal */}
-      {selectedBusiness && (
-        <BusinessModal 
-          business={selectedBusiness} 
-          onClose={closeBusinessDetails} 
+      
+      {/* Loading indicator */}
+      {loading && (
+        <LoadingContainer>
+          <Spinner />
+          <p style={{ marginTop: '1rem', color: '#666' }}>Searching for businesses...</p>
+        </LoadingContainer>
+      )}
+      
+      {/* Results */}
+      {!loading && businesses.length > 0 && (
+        <BusinessCards businesses={businesses} />
+      )}
+      
+      {/* No results state */}
+      {!loading && !error && businesses.length === 0 && (
+        <div style={{ 
+          maxWidth: '600px', 
+          margin: '2rem auto', 
+          textAlign: 'center', 
+          padding: '2rem',
+          backgroundColor: '#FAFAFA', 
+          borderRadius: '12px' 
+        }}>
+          <p style={{ fontSize: '1.25rem', color: '#666', marginBottom: '1rem' }}>No businesses found</p>
+          <p style={{ color: '#888' }}>Try adjusting your search terms or location</p>
+        </div>
+      )}
+      
+      {/* Add this for Step 4: AI Chat */}
+      {!loading && (
+        // Comment out the original AIChat component
+        // <AIChat 
+        //   businesses={businesses} 
+        //   onFilterBusinesses={handleFilterBusinesses}
+        //   agentStyle={aiAgentStyle}
+        // />
+        
+        // Add the debug version instead
+        <DebugAIChat 
+          businesses={businesses} 
         />
       )}
+      
+      {/* Debug indicator */}
+      <div style={{ 
+        position: 'fixed', 
+        bottom: '0', 
+        left: '0', 
+        backgroundColor: 'rgba(33, 33, 33, 0.8)', 
+        color: 'white', 
+        padding: '0.5rem', 
+        fontSize: '0.75rem',
+        borderTopRightRadius: '8px' 
+      }}>
+        API: {process.env.REACT_APP_API_URL || 'http://localhost:5000'} | 
+        ENV: {process.env.NODE_ENV} | 
+        Last Updated: 2025-03-26 04:46:28 | 
+        User: RogerBez | 
+        Lat: {searchParams.lat?.toFixed(6)} Lng: {searchParams.lng?.toFixed(6)}
+      </div>
     </div>
   );
 }
