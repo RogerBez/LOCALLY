@@ -156,6 +156,15 @@ const Logo = styled.img`
   }
 `;
 
+// Added for location debugging
+const LocationInfoPanel = styled.div`
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  text-align: left;
+`;
+
 function App() {
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -164,7 +173,15 @@ function App() {
   const [searchParams, setSearchParams] = useState({
     lat: null,
     lng: null,
-    query: ''
+    query: '',
+    locationName: 'Fetching location...' // Add this for display
+  });
+  
+  // Add this to track location status
+  const [locationStatus, setLocationStatus] = useState({
+    isLoading: true,
+    error: null,
+    source: 'Detecting...' // 'GPS', 'IP', 'Default'
   });
   
   // Add this for Step 6: AI Agent Style
@@ -172,29 +189,157 @@ function App() {
     localStorage.getItem('preferredAIAgent') || 'casual'
   );
 
+  // Function to reverse geocode coordinates to human-readable address
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Geocoding service unavailable');
+      }
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      console.log('🗺️ Reverse geocoding result:', data);
+      
+      // Format the location nicely
+      let locationName = 'Unknown Location';
+      
+      if (data.address) {
+        const address = data.address;
+        
+        const cityComponents = [
+          address.city,
+          address.town,
+          address.village,
+          address.hamlet,
+          address.suburb
+        ].filter(Boolean);
+        
+        const regionComponents = [
+          address.state,
+          address.county,
+          address.region
+        ].filter(Boolean);
+        
+        const city = cityComponents[0] || 'Unknown City';
+        const region = regionComponents[0] || '';
+        const country = address.country || '';
+        
+        if (city && country) {
+          locationName = region 
+            ? `${city}, ${region}, ${country}`
+            : `${city}, ${country}`;
+        } else if (city) {
+          locationName = city;
+        } else if (country) {
+          locationName = country;
+        }
+      }
+      
+      return {
+        displayName: locationName,
+        fullData: data
+      };
+    } catch (error) {
+      console.error('❌ Reverse geocoding error:', error);
+      return {
+        displayName: 'Location unavailable',
+        error: error.message
+      };
+    }
+  };
+
   // Get user's geolocation on mount
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setSearchParams(prev => ({
-          ...prev,
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        }));
-      },
-      (error) => {
-        console.error('❌ Location error:', error);
-        // Default to Cape Town coordinates if geolocation fails
-        setSearchParams(prev => ({
-          ...prev,
-          lat: -33.882112,
-          lng: 18.497536
-        }));
-      },
-      { enableHighAccuracy: true }
-    );
+    setLocationStatus({ isLoading: true, error: null, source: 'Detecting...' });
+    
+    const geoSuccess = async (position) => {
+      console.log('🌍 GPS Location acquired:', position.coords);
+      const { latitude, longitude, accuracy } = position.coords;
+      
+      // Get human-readable location name
+      const geocodeResult = await reverseGeocode(latitude, longitude);
+      const locationName = geocodeResult.displayName || 'Current Location';
+      
+      setSearchParams(prev => ({
+        ...prev,
+        lat: latitude,
+        lng: longitude,
+        locationName: locationName
+      }));
+      
+      setLocationStatus({ 
+        isLoading: false, 
+        error: null, 
+        source: 'GPS',
+        accuracy: accuracy,
+        addressInfo: geocodeResult.fullData
+      });
+    };
+    
+    const geoError = async (error) => {
+      console.error('❌ Location error:', error);
+      
+      // Fall back to default coordinates (Cape Town)
+      const defaultLat = -33.882112;
+      const defaultLng = 18.497536;
+      
+      console.log('⚠️ Falling back to default location (Cape Town)');
+      
+      // Get human-readable location name for default coordinates
+      const geocodeResult = await reverseGeocode(defaultLat, defaultLng);
+      const locationName = geocodeResult.displayName || 'Cape Town, South Africa';
+      
+      setSearchParams(prev => ({
+        ...prev,
+        lat: defaultLat,
+        lng: defaultLng,
+        locationName: `${locationName} (Default)`
+      }));
+      
+      setLocationStatus({ 
+        isLoading: false, 
+        error: error.message, 
+        source: 'Default',
+        fallback: 'Cape Town',
+        addressInfo: geocodeResult.fullData
+      });
+    };
+    
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        geoSuccess,
+        geoError,
+        { 
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    } else {
+      setLocationStatus({ 
+        isLoading: false, 
+        error: 'Geolocation not supported', 
+        source: 'Unavailable' 
+      });
+      
+      // Use default location
+      setSearchParams(prev => ({
+        ...prev,
+        lat: -33.882112,
+        lng: 18.497536,
+        locationName: 'Cape Town, South Africa (Default)'
+      }));
+    }
   }, []);
-  
+
   // Function to fetch businesses with better error handling
   const fetchBusinesses = async (params) => {
     if (!params.query) {
@@ -386,7 +531,7 @@ function App() {
           {/* MODIFIED: Restructured search form */}
           <SearchForm onSubmit={(e) => {
             e.preventDefault();
-            handleLandingSearch(searchParams.query, "Current Location");
+            handleLandingSearch(searchParams.query, searchParams.locationName);
           }}>
             <SearchRow>
               <InputGroup>
@@ -404,8 +549,9 @@ function App() {
                 <InputIcon><FaMapMarkerAlt /></InputIcon>
                 <Input 
                   type="text" 
-                  value="Current Location"
+                  value={searchParams.locationName}
                   disabled
+                  title={`Location source: ${locationStatus.source}${locationStatus.accuracy ? `, accuracy: ~${Math.round(locationStatus.accuracy)}m` : ''}`}
                   placeholder="Using your location" 
                 />
               </InputGroup>
@@ -430,7 +576,7 @@ function App() {
             </div>
           )}
           
-          {!searchParams.lat && !error && (
+          {locationStatus.isLoading && (
             <div style={{ 
               marginTop: '1rem',
               backgroundColor: '#E3F2FD', 
@@ -441,6 +587,23 @@ function App() {
               <p>Acquiring your location...</p>
               <Spinner style={{ width: '25px', height: '25px', margin: '0.5rem auto' }} />
             </div>
+          )}
+          
+          {/* Add location debug information */}
+          {!locationStatus.isLoading && (
+            <LocationInfoPanel
+              style={{ 
+                backgroundColor: locationStatus.error ? '#FFF8E1' : '#E8F5E9', 
+                color: locationStatus.error ? '#F57C00' : '#2E7D32'
+              }}
+            >
+              <p><strong>Location Info:</strong></p>
+              <p>Location: {searchParams.locationName}</p>
+              <p>Source: {locationStatus.source}</p>
+              <p>Coordinates: {searchParams.lat?.toFixed(6)}, {searchParams.lng?.toFixed(6)}</p>
+              {locationStatus.accuracy && <p>Accuracy: ~{Math.round(locationStatus.accuracy)}m</p>}
+              {locationStatus.error && <p>Error: {locationStatus.error}</p>}
+            </LocationInfoPanel>
           )}
           
           {/* Add Step 6: AI Agent Selector on the landing page */}
@@ -505,8 +668,9 @@ function App() {
               <InputIcon><FaMapMarkerAlt /></InputIcon>
               <Input 
                 type="text" 
-                value="Current Location"
+                value={searchParams.locationName}
                 disabled
+                title={`Location source: ${locationStatus.source}${locationStatus.accuracy ? `, accuracy: ~${Math.round(locationStatus.accuracy)}m` : ''}`}
                 placeholder="Using your location" 
               />
             </InputGroup>
@@ -518,7 +682,7 @@ function App() {
         </form>
       </div>
       
-      {/* Show current search query */}
+      {/* Show current search query with location */}
       {!loading && searchParams.query && (
         <div style={{ 
           maxWidth: '800px', 
@@ -527,7 +691,7 @@ function App() {
           fontWeight: '500',
           color: '#555'
         }}>
-          Showing results for: "{searchParams.query}"
+          Showing results for: "{searchParams.query}" in {searchParams.locationName}
         </div>
       )}
       
@@ -570,9 +734,15 @@ function App() {
       )}
       
       {/* Results */}
-      {!loading && businesses.length > 0 && (
-        <BusinessCards businesses={businesses} />
-      )}
+{!loading && businesses.length > 0 && (
+  <BusinessCards 
+    businesses={businesses} 
+    userLocation={{
+      lat: searchParams.lat,
+      lng: searchParams.lng
+    }}
+  />
+)}
       
       {/* No results state */}
       {!loading && !error && businesses.length === 0 && (
@@ -604,23 +774,29 @@ function App() {
         />
       )}
       
-      {/* Debug indicator */}
       <div style={{ 
-        position: 'fixed', 
-        bottom: '0', 
-        left: '0', 
-        backgroundColor: 'rgba(33, 33, 33, 0.8)', 
-        color: 'white', 
-        padding: '0.5rem', 
-        fontSize: '0.75rem',
-        borderTopRightRadius: '8px' 
-      }}>
-        API: {process.env.REACT_APP_API_URL || 'http://localhost:5000'} | 
-        ENV: {process.env.NODE_ENV} | 
-        Last Updated: 2025-03-26 04:46:28 | 
-        User: RogerBez | 
-        Lat: {searchParams.lat?.toFixed(6)} Lng: {searchParams.lng?.toFixed(6)}
-      </div>
+  position: 'fixed', 
+  bottom: '0', 
+  left: '0', 
+  backgroundColor: 'rgba(33, 33, 33, 0.9)', 
+  color: 'white', 
+  padding: '0.5rem', 
+  fontSize: '0.75rem',
+  borderTopRightRadius: '8px',
+  maxWidth: '100%',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap'
+}}>
+  API: {process.env.REACT_APP_API_URL || 'http://localhost:5000'} | 
+  ENV: {process.env.NODE_ENV} | 
+  Last Updated: 2025-03-26 05:56:15 | 
+  User: RogerBez | 
+  Location: {searchParams.locationName} ({locationStatus.source}) | 
+  Navigation: {locationStatus.source === 'GPS' ? 'Using your current location' : 'Using default location'} |
+  Lat: {searchParams.lat?.toFixed(6)} Lng: {searchParams.lng?.toFixed(6)}
+  {locationStatus.accuracy && ` | Accuracy: ~${Math.round(locationStatus.accuracy)}m`}
+</div>
     </div>
   );
 }

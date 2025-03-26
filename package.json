@@ -1,35 +1,39 @@
 {
-  "name": "local-service-agent",
+  "name": "locally",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Local service finder with AI assistant",
+  "main": "server/server.js",
   "scripts": {
-    "start": "node server/index.js"
+    "start": "node server/server.js",
+    "server": "nodemon server/server.js",
+    "client": "cd client && npm start",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "install-client": "cd client && npm install",
+    "install-server": "cd server && npm install",
+    "install-all": "npm run install-server && npm run install-client",
+    "build-client": "cd client && npm run build",
+    "heroku-postbuild": "npm run install-client && npm run build-client"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RogerBez/LOCALLY.git"
+  },
+  "keywords": [
+    "local",
+    "services",
+    "ai",
+    "assistant"
+  ],
+  "author": "Roger Bez",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/RogerBez/LOCALLY/issues"
+  },
+  "homepage": "https://github.com/RogerBez/LOCALLY#readme",
   "dependencies": {
-    "axios": "^1.7.9",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
+    "concurrently": "^8.2.2"
   },
   "engines": {
-    "node": ">=14.0.0"
-  }
-}
-{
-  "scripts": {
-    "start": "NODE_ENV=development node server.js",
-    "start:local": "NODE_ENV=development nodemon server.js",
-    "start:production": "NODE_ENV=production node server.js",
-    "deploy:render": "NODE_ENV=production npm run build && npm run start:production",
-    "deploy:vercel": "vercel --prod",
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "node": ">=18.0.0"
   }
 }

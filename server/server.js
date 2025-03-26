@@ -5,7 +5,7 @@ const placesRoutes = require('./routes/placesRoutes');
 const axios = require('axios');
 const aiRoutes = require('./routes/aiRoutes');
 const apiRoutes = require('./routes/api');
-
+const path = require('path');
 const app = express();
 
 app.use(cors({
@@ -347,6 +347,22 @@ app.post('/api/ai-chat', (req, res) => {
     });
   }
 });
+
+// Serve static assets in production
+if (process.env.NODE_ENV === 'production') {
+  // Set static folder
+  app.use(express.static(path.join(__dirname, '../client/build')));
+
+  // Any route that doesn't match API routes should serve the React app
+  app.get('*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, '../client/build', 'index.html'));
+  });
+
+  console.log('Running in production mode - serving static files from client/build');
+} else {
+  console.log('Running in development mode');
+}
+
 app.listen(env.PORT, () => {
   console.log(`🚀 Server running on http://localhost:${env.PORT}`);
 });

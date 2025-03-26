@@ -194,7 +194,7 @@ const ResultsGrid = styled.div`
   gap: 20px;
 `;
 
-const BusinessCard = ({ biz }) => {
+const BusinessCard = ({ biz, userLocation }) => {
   const [expanded, setExpanded] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -202,11 +202,12 @@ const BusinessCard = ({ biz }) => {
 
   useEffect(() => {
     console.log("[BusinessCard] Received business data:", biz);
+    console.log("[BusinessCard] User location:", userLocation);
     
     if (!biz || !biz.place_id) {
       console.warn("[BusinessCard] Missing critical business data:", biz);
     }
-  }, [biz]);
+  }, [biz, userLocation]);
 
   const toggleAccordion = () => setExpanded(!expanded);
   
@@ -271,6 +272,21 @@ const BusinessCard = ({ biz }) => {
   const getMapImageUrl = (lat, lng) => {
     const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
     return `${API_URL}/api/map-image?lat=${lat}&lng=${lng}&width=280&height=150`;
+  };
+
+  // NEW: Function to get directions URL with user's current location as origin
+  const getDirectionsUrl = (destinationLat, destinationLng) => {
+    let url = `https://www.google.com/maps/dir/?api=1&destination=${destinationLat},${destinationLng}`;
+    
+    // Add origin (user location) if available
+    if (userLocation && userLocation.lat && userLocation.lng) {
+      url += `&origin=${userLocation.lat},${userLocation.lng}`;
+      console.log("[BusinessCard] Using user's current location for directions:", userLocation);
+    } else {
+      console.log("[BusinessCard] No user location available, letting Google Maps determine current location");
+    }
+    
+    return url;
   };
 
   console.log("[BusinessCard] Rendering for business:", biz?.name);
@@ -360,16 +376,19 @@ const BusinessCard = ({ biz }) => {
         </div>
       )}
 
-      {/* Get Directions Button */}
+      {/* Get Directions Button - UPDATED with user location */}
       <div>
         {biz.latitude && biz.longitude ? (
           <DirectionsButton
-            href={`https://www.google.com/maps/dir/?api=1&destination=${biz.latitude},${biz.longitude}`}
+            href={getDirectionsUrl(biz.latitude, biz.longitude)}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => console.log("[BusinessCard] Directions requested for:", {lat: biz.latitude, lng: biz.longitude})}
+            onClick={() => console.log("[BusinessCard] Directions requested:", {
+              from: userLocation ? `${userLocation.lat},${userLocation.lng}` : "Current location (determined by Google)",
+              to: `${biz.latitude},${biz.longitude}`
+            })}
           >
-            📍 Get Directions
+            📍 Get Directions {userLocation ? "(From Your Location)" : ""}
           </DirectionsButton>
         ) : (
           <span style={{ color: '#999', display: 'block', marginTop: '10px' }}>
@@ -438,8 +457,9 @@ const BusinessCard = ({ biz }) => {
   );
 };
 
-const BusinessCards = ({ businesses }) => {
+const BusinessCards = ({ businesses, userLocation }) => {
   console.log("[BusinessCards] Rendering with businesses:", businesses);
+  console.log("[BusinessCards] User location for directions:", userLocation);
   
   useEffect(() => {
     if (businesses && businesses.length > 0) {
@@ -463,6 +483,9 @@ const BusinessCards = ({ businesses }) => {
           <h3 style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>Debug Info:</h3>
           <p style={{ fontSize: '12px', color: '#666' }}>Timestamp: {new Date().toISOString()}</p>
           <p style={{ fontSize: '12px', color: '#666' }}>Businesses: {businesses ? 'Array(empty)' : 'null/undefined'}</p>
+          <p style={{ fontSize: '12px', color: '#666' }}>
+            User Location: {userLocation ? `${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}` : 'Not provided'}
+          </p>
           <button 
             onClick={() => console.log('Current business data:', businesses)}
             style={{ fontSize: '12px', color: '#3498db', marginTop: '8px', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}
@@ -481,7 +504,11 @@ const BusinessCards = ({ businesses }) => {
       </ResultsTitle>
       <ResultsGrid>
         {businesses.map((biz, index) => (
-          <BusinessCard key={index} biz={biz} />
+          <BusinessCard 
+            key={index} 
+            biz={biz} 
+            userLocation={userLocation}
+          />
         ))}
       </ResultsGrid>
     </ResultsContainer>
