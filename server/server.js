@@ -10,7 +10,7 @@ const app = express();
 // Define allowed origins, including both Render and Vercel domains
 const corsOrigins = env.CORS_ORIGIN ? 
   env.CORS_ORIGIN.split(',').map(origin => origin.trim()) : 
-  ['http://localhost:3000', 'https://locally-frontend.vercel.app'];
+  ['http://localhost:3000', 'https://locally-frontend.vercel.app', 'https://locally-frontend-43pth6cnj-the-marketing-teams-projects.vercel.app'];
 
 console.log('🔒 Configured CORS origins:', corsOrigins);
 
@@ -53,6 +53,38 @@ app.get('/api/env-check', (req, res) => {
     environment: process.env.NODE_ENV,
     serverTime: new Date().toISOString()
   });
+});
+
+// Ensure this endpoint is defined BEFORE other route handlers
+app.post('/api/ai-chat', async (req, res) => {
+  console.log('AI Chat endpoint hit:', {
+    body: req.body,
+    headers: req.headers,
+    url: req.url
+  });
+
+  try {
+    const { message, isConfirmation, context } = req.body;
+    
+    // Your existing AI chat logic here
+    const response = {
+      message: '',
+      options: [],
+      searchQuery: null,
+      needsConfirmation: false
+    };
+
+    // Add your AI chat logic...
+    // Copy the AI chat logic from your existing server.js file
+
+    res.json(response);
+  } catch (error) {
+    console.error('AI Chat Error:', error);
+    res.status(500).json({
+      error: 'Server error',
+      message: error.message
+    });
+  }
 });
 
 // Move the AI chat endpoint BEFORE mounting the routes
