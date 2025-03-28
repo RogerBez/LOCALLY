@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { FaStar, FaRegStar, FaPhoneAlt, FaWhatsapp, FaEnvelope, FaGlobe, FaExternalLinkAlt } from "react-icons/fa";
+import Search from './Search';  // Add this import
 import './BusinessCard.css';
 
-const BusinessCard = ({ biz }) => {
+const BusinessCard = ({ biz, userLocation }) => {  // Add userLocation prop
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
 
@@ -60,6 +61,22 @@ const BusinessCard = ({ biz }) => {
   const formatWhatsAppNumber = (phone) => {
     if (!phone) return null;
     return phone.replace(/\D/g, '');
+  };
+
+  const calculateDistance = () => {
+    if (!userLocation || !biz.latitude || !biz.longitude) return null;
+    
+    // Use Haversine formula to calculate actual distance from current location
+    const R = 6371; // Radius of earth in kilometers
+    const dLat = (biz.latitude - userLocation.lat) * Math.PI / 180;
+    const dLon = (biz.longitude - userLocation.lng) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(userLocation.lat * Math.PI / 180) * Math.cos(biz.latitude * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c;
+    return distance.toFixed(1);
   };
 
   useEffect(() => {
@@ -169,7 +186,7 @@ const BusinessCard = ({ biz }) => {
 
       <div className="business-info">
         <p>{biz.address}</p>
-        <p>{biz.distance} km away</p>
+        <p>{calculateDistance()} km away</p>
       </div>
 
       {biz.latitude && biz.longitude && (
@@ -204,7 +221,7 @@ const BusinessCard = ({ biz }) => {
   );
 };
 
-const BusinessCards = ({ businesses }) => {
+const BusinessCards = ({ businesses, userLocation, onSearch, searchQuery }) => {
   const [sortedBusinesses, setSortedBusinesses] = useState(businesses);
   const [showWelcome, setShowWelcome] = useState(false);
 
@@ -212,28 +229,23 @@ const BusinessCards = ({ businesses }) => {
     setSortedBusinesses(businesses);
   }, [businesses]);
 
-  const handleSort = (option) => {
+  const handleSort = (sortType) => {
     let sorted = [...businesses];
-    switch (option) {
-      case 'reviews':
+    switch (sortType) {
+      case 'rating':
         sorted.sort((a, b) => b.rating - a.rating);
         break;
       case 'distance':
         sorted.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
         break;
-      case 'relevance':
-        sorted = [...businesses];
-        break;
-      case 'expanded':
-        sorted = [...businesses];
+      case 'reviews':
+        sorted.sort((a, b) => b.aggregatedReviews - a.aggregatedReviews);
         break;
       default:
         sorted = [...businesses];
     }
     setSortedBusinesses(sorted);
   };
-
-  if (!businesses?.length) return <div className="no-results">No results found</div>;
 
   return (
     <div className="outer-container">
@@ -242,9 +254,13 @@ const BusinessCards = ({ businesses }) => {
           <h2>Local Businesses Found</h2>
           <p>Showing {businesses.length} results in your area</p>
         </div>
-        <div className="business-cards-grid" style={{ margin: '0 auto' }}>
+        <div className="business-cards-grid">
           {sortedBusinesses.map(biz => (
-            <BusinessCard key={biz.place_id} biz={biz} />
+            <BusinessCard 
+              key={biz.place_id} 
+              biz={biz} 
+              userLocation={userLocation}
+            />
           ))}
         </div>
       </div>

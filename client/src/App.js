@@ -633,7 +633,8 @@ function App() {
             businesses={businesses} 
             userLocation={{
               lat: searchParams.lat,
-              lng: searchParams.lng
+              lng: searchParams.lng,
+              locationName: searchParams.locationName
             }}
           />
           

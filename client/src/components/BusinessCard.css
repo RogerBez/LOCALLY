@@ -41,7 +41,7 @@ body {
 /* Business Card Styling */
 .business-card {
   background: white;
-  padding: 24px;
+  padding: 16px; /* Reduced from 24px */
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
@@ -49,9 +49,9 @@ body {
   height: 100%; /* Ensure all cards have the same height */
   display: flex;
   flex-direction: column;
-  width: 85%; /* Reduce width to 85% of the grid cell */
-  min-width: 250px; /* Reduce minimum width */
-  max-width: 350px; /* Reduce maximum width */
+  width: 100%;
+  min-width: 280px;
+  max-width: 320px; /* Reduced from 350px */
   margin: 0 auto;
 }
 
@@ -194,7 +194,7 @@ body {
   max-width: 1200px;
   width: 95%;
   margin: 0 auto;
-  padding: 32px;
+  padding: 20px; /* Reduced from 32px */
   background-color: white;
   border-radius: 16px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
@@ -222,16 +222,18 @@ body {
 
 .business-cards-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr); /* Remove minmax to allow more flexible sizing */
-  gap: 24px;
+  grid-template-columns: repeat(3, minmax(280px, 1fr));
+  gap: 20px; /* Reduced from 24px */
   width: 100%;
   margin: 0 auto;
-  padding: 0 16px; /* Add some padding to prevent cards from touching container edges */
+  padding: 0; /* Removed padding */
+  max-width: 1100px;
 }
 
 @media (max-width: 1200px) {
   .business-cards-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
+    max-width: 800px;
   }
   
   .business-cards-container {
@@ -255,6 +257,7 @@ body {
     grid-template-columns: 1fr;
     gap: 16px;
     padding: 0 8px;
+    max-width: 400px;
   }
 
   .business-cards-container {
@@ -266,6 +269,7 @@ body {
     width: 95%;
     min-width: unset;
     padding: 16px;
+    max-width: 100%;
   }
 }
 

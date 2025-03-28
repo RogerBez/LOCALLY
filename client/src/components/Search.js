@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaSearch, FaRobot } from 'react-icons/fa';
 import './Search.css';
 
-const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQuery = null }) => {
+const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQuery = null, onSort }) => {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [aiResponse, setAiResponse] = useState({
@@ -100,6 +100,18 @@ const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQu
         // Direct search if this is a confirmation and there's a search query
         console.log('🔍 Performing direct search with:', data.searchQuery);
         await onSearch(data.searchQuery);
+      }
+
+      if (data.action === 'sort') {
+        // Handle sorting action
+        if (data.sortBy) {
+          onSort(data.sortBy);
+        }
+      } else if (data.action === 'fetch_more') {
+        // Handle pagination/fetch more
+        if (data.confirmedSearch) {
+          await onSearch(data.confirmedSearch, { loadMore: true });
+        }
       }
     } catch (err) {
       console.error('❌ AI Chat error:', err);
