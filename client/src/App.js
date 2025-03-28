@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import BusinessCards from './components/BusinessCard';
-import AIChat from './components/AIChat';
-import AIAgentSelector from './components/AIAgentSelector';  // Moved to the top
-import DebugAIChat from './components/DebugAIChat'; // Add this import
+import AIAgent from './components/AIAgent';
+import Search from './components/Search'; // Add this import
 import { FaSearch, FaMapMarkerAlt } from 'react-icons/fa';
 import logo from './Assets/logo.jpeg';
 
@@ -26,15 +25,6 @@ const Card = styled.div`
   width: 100%;
   max-width: 700px;
   text-align: center;
-`;
-
-// MODIFIED: Updated search form to be more responsive
-const SearchForm = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  width: 100%;
-  margin-top: 2rem;
 `;
 
 const SearchRow = styled.div`
@@ -183,11 +173,11 @@ function App() {
     error: null,
     source: 'Detecting...' // 'GPS', 'IP', 'Default'
   });
-  
-  // Add this for Step 6: AI Agent Style
-  const [aiAgentStyle, setAIAgentStyle] = useState(
-    localStorage.getItem('preferredAIAgent') || 'casual'
-  );
+
+  // Add a ref at the component level
+  const locationRequestedRef = useRef(false);
+
+  const [showFollowUp, setShowFollowUp] = useState(false);
 
   // Function to reverse geocode coordinates to human-readable address
   const reverseGeocode = async (lat, lng) => {
@@ -258,6 +248,10 @@ function App() {
 
   // Get user's geolocation on mount
   useEffect(() => {
+    // Use the ref declared outside the effect
+    if (locationRequestedRef.current) return;
+    locationRequestedRef.current = true;
+
     setLocationStatus({ isLoading: true, error: null, source: 'Detecting...' });
     
     const geoSuccess = async (position) => {
@@ -369,6 +363,9 @@ function App() {
     
     console.log('🔍 Fetching from:', url);
     
+    console.group('🔍 Business Search');
+    console.log('Search params:', params);
+    
     try {
       // First check if the server is even running
       try {
@@ -421,23 +418,35 @@ function App() {
       const data = await response.json();
       console.log('📊 Received data:', data);
       
+      console.log('📊 Received businesses:', {
+        count: data.businesses?.length || 0,
+        firstBusiness: data.businesses?.[0] ? {
+          name: data.businesses[0].name,
+          hasPhone: Boolean(data.businesses[0].formatted_phone_number),
+          phone: data.businesses[0].formatted_phone_number
+        } : null
+      });
+      
       // Update state with businesses - handle different response formats
       if (data.businesses && Array.isArray(data.businesses)) {
         setBusinesses(data.businesses);
         if (data.businesses.length > 0) {
           setShowLanding(false);
+          setShowFollowUp(true); // Show follow-up after results
         }
       } else if (Array.isArray(data)) {
         // Handle case where response is an array directly (for compatibility with old endpoint)
         setBusinesses(data);
         if (data.length > 0) {
           setShowLanding(false);
+          setShowFollowUp(true); // Show follow-up after results
         }
       } else if (data.success && data.businesses) {
         // For the success:true format
         setBusinesses(data.businesses);
         if (data.businesses.length > 0) {
           setShowLanding(false);
+          setShowFollowUp(true); // Show follow-up after results
         }
       } else {
         console.warn('⚠️ Data format unexpected:', data);
@@ -448,6 +457,7 @@ function App() {
       setError(`Error fetching data: ${error.message}`);
       setBusinesses([]);
     } finally {
+      console.groupEnd();
       setLoading(false);
     }
   };
@@ -525,43 +535,13 @@ function App() {
     return (
       <PageContainer>
         <Card>
-          {/* Centered logo without text */}
           <Logo src={logo} alt="Local Service Agent Logo" />
           
-          {/* MODIFIED: Restructured search form */}
-          <SearchForm onSubmit={(e) => {
-            e.preventDefault();
-            handleLandingSearch(searchParams.query, searchParams.locationName);
-          }}>
-            <SearchRow>
-              <InputGroup>
-                <InputIcon><FaSearch /></InputIcon>
-                <Input 
-                  type="text" 
-                  placeholder="What are you looking for?" 
-                  value={searchParams.query}
-                  onChange={(e) => setSearchParams(prev => ({...prev, query: e.target.value}))}
-                  required
-                />
-              </InputGroup>
-              
-              <InputGroup $locationField>
-                <InputIcon><FaMapMarkerAlt /></InputIcon>
-                <Input 
-                  type="text" 
-                  value={searchParams.locationName}
-                  disabled
-                  title={`Location source: ${locationStatus.source}${locationStatus.accuracy ? `, accuracy: ~${Math.round(locationStatus.accuracy)}m` : ''}`}
-                  placeholder="Using your location" 
-                />
-              </InputGroup>
-            </SearchRow>
-            
-            <Button type="submit" disabled={loading || !searchParams.lat}>
-              {loading ? 'Searching...' : 'Search'}
-            </Button>
-          </SearchForm>
-          
+          <Search 
+            onSearch={(query) => handleLandingSearch(query, searchParams.locationName)}
+            locationName={searchParams.locationName}
+          />
+
           {error && (
             <div style={{ 
               backgroundColor: '#FFEBEE', 
@@ -605,15 +585,6 @@ function App() {
               {locationStatus.error && <p>Error: {locationStatus.error}</p>}
             </LocationInfoPanel>
           )}
-          
-          {/* Add Step 6: AI Agent Selector on the landing page */}
-          <div style={{ marginTop: '2rem', borderTop: '1px solid #eee', paddingTop: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Personalize Your Experience</h3>
-            <AIAgentSelector 
-              currentAgent={aiAgentStyle} 
-              onSelect={setAIAgentStyle} 
-            />
-          </div>
         </Card>
       </PageContainer>
     );
@@ -621,12 +592,10 @@ function App() {
   
   return (
     <div>
-      {/* Centered logo in header, removed text */}
       <Header>
         <BackButton onClick={handleReset}>
           ← New Search
         </BackButton>
-        
         <Logo 
           src={logo} 
           alt="Local Service Agent Logo" 
@@ -639,92 +608,16 @@ function App() {
             filter: 'brightness(0) invert(1)' 
           }} 
         />
-        
-        <div style={{ width: '100px' }}></div> {/* For spacing/balance */}
+        <div style={{ width: '100px' }}></div>
       </Header>
       
-      {/* MODIFIED: Restructured search form for results page */}
       <div style={{ backgroundColor: '#f4f6f9', padding: '1rem' }}>
-        <form onSubmit={handleSearch} style={{ 
-          maxWidth: '800px', 
-          margin: '0 auto',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px'
-        }}>
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <InputGroup style={{ flex: '2', minWidth: '250px' }}>
-              <InputIcon><FaSearch /></InputIcon>
-              <Input
-                type="text"
-                name="query"
-                value={searchParams.query}
-                onChange={handleInputChange}
-                placeholder="Search for services..."
-              />
-            </InputGroup>
-            
-            <InputGroup $locationField style={{ flex: '1', minWidth: '150px' }}>
-              <InputIcon><FaMapMarkerAlt /></InputIcon>
-              <Input 
-                type="text" 
-                value={searchParams.locationName}
-                disabled
-                title={`Location source: ${locationStatus.source}${locationStatus.accuracy ? `, accuracy: ~${Math.round(locationStatus.accuracy)}m` : ''}`}
-                placeholder="Using your location" 
-              />
-            </InputGroup>
-          </div>
-          
-          <Button type="submit" disabled={loading}>
-            {loading ? 'Searching...' : 'Search'}
-          </Button>
-        </form>
+        <Search 
+          onSearch={(query) => fetchBusinesses({ ...searchParams, query })}
+          initialBusinesses={businesses}
+        />
       </div>
-      
-      {/* Show current search query with location */}
-      {!loading && searchParams.query && (
-        <div style={{ 
-          maxWidth: '800px', 
-          margin: '1rem auto',
-          textAlign: 'center',
-          fontWeight: '500',
-          color: '#555'
-        }}>
-          Showing results for: "{searchParams.query}" in {searchParams.locationName}
-        </div>
-      )}
-      
-      {/* Error display */}
-      {error && (
-        <div style={{ 
-          maxWidth: '800px', 
-          margin: '1rem auto', 
-          padding: '0.75rem', 
-          backgroundColor: '#FFEBEE', 
-          border: '1px solid #FFCDD2', 
-          color: '#D32F2F',
-          borderRadius: '8px' 
-        }}>
-          <p style={{ fontWeight: 'bold' }}>Error</p>
-          <p>{error}</p>
-          <button 
-            onClick={() => setError(null)}
-            style={{ 
-              marginTop: '0.5rem', 
-              fontSize: '0.875rem', 
-              color: '#D32F2F', 
-              textDecoration: 'underline',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-      
+
       {/* Loading indicator */}
       {loading && (
         <LoadingContainer>
@@ -734,16 +627,40 @@ function App() {
       )}
       
       {/* Results */}
-{!loading && businesses.length > 0 && (
-  <BusinessCards 
-    businesses={businesses} 
-    userLocation={{
-      lat: searchParams.lat,
-      lng: searchParams.lng
-    }}
-  />
-)}
-      
+      {!loading && businesses.length > 0 && (
+        <>
+          <BusinessCards 
+            businesses={businesses} 
+            userLocation={{
+              lat: searchParams.lat,
+              lng: searchParams.lng
+            }}
+          />
+          
+          {/* Add follow-up AI conversation */}
+          {showFollowUp && (
+            <div className="follow-up-container" style={{
+              maxWidth: '800px',
+              margin: '2rem auto',
+              padding: '1.5rem',
+              backgroundColor: '#f0f7ff',
+              borderRadius: '12px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}>
+              <h3 style={{ marginTop: 0, color: '#2563eb' }}>
+                Need help with these results?
+              </h3>
+              <Search 
+                onSearch={(query) => fetchBusinesses({ ...searchParams, query })}
+                initialBusinesses={businesses}
+                isFollowUp={true}
+                searchQuery={searchParams.query}
+              />
+            </div>
+          )}
+        </>
+      )}
+
       {/* No results state */}
       {!loading && !error && businesses.length === 0 && (
         <div style={{ 
@@ -754,26 +671,12 @@ function App() {
           backgroundColor: '#FAFAFA', 
           borderRadius: '12px' 
         }}>
-          <p style={{ fontSize: '1.25rem', color: '#666', marginBottom: '1rem' }}>No businesses found</p>
-          <p style={{ color: '#888' }}>Try adjusting your search terms or location</p>
+          <p style={{ fontSize: '1.25rem', color: '#666', marginBottom: '1rem' }}>No results found</p>
+          <p style={{ color: '#888' }}>Try a different search term</p>
         </div>
       )}
       
-      {/* Add this for Step 4: AI Chat */}
-      {!loading && (
-        // Comment out the original AIChat component
-        // <AIChat 
-        //   businesses={businesses} 
-        //   onFilterBusinesses={handleFilterBusinesses}
-        //   agentStyle={aiAgentStyle}
-        // />
-        
-        // Add the debug version instead
-        <DebugAIChat 
-          businesses={businesses} 
-        />
-      )}
-      
+      {/* Debug info div */}
       <div style={{ 
   position: 'fixed', 
   bottom: '0', 
@@ -787,7 +690,7 @@ function App() {
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap'
-}}>
+}}></div>
   API: {process.env.REACT_APP_API_URL || 'http://localhost:5000'} | 
   ENV: {process.env.NODE_ENV} | 
   Last Updated: 2025-03-26 05:56:15 | 
@@ -797,7 +700,6 @@ function App() {
   Lat: {searchParams.lat?.toFixed(6)} Lng: {searchParams.lng?.toFixed(6)}
   {locationStatus.accuracy && ` | Accuracy: ~${Math.round(locationStatus.accuracy)}m`}
 </div>
-    </div>
   );
 }
 

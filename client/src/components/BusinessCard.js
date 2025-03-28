@@ -1,517 +1,254 @@
 import React, { useState, useEffect } from "react";
-import { FaStar, FaRegStar, FaPhoneAlt, FaWhatsapp, FaFacebook, FaInstagram, FaTwitter } from "react-icons/fa";
-import styled from "styled-components";
+import { FaStar, FaRegStar, FaPhoneAlt, FaWhatsapp, FaEnvelope, FaGlobe, FaExternalLinkAlt } from "react-icons/fa";
+import './BusinessCard.css';
 
-// Styled components for direct styling
-const Card = styled.div`
-  background-color: white;
-  border-radius: 12px;
-  box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 15px;
-  transition: transform 0.2s ease-in-out;
-  text-align: left;
-  width: 320px;
-  height: auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  border: 1px solid #ddd;
-  margin: 10px;
-  overflow: hidden;
-  
-  &:hover {
-    transform: scale(1.05);
-    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.15);
-  }
-`;
+const BusinessCard = ({ biz }) => {
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
 
-const Logo = styled.img`
-  width: 60px;
-  height: 60px;
-  object-fit: contain;
-  margin-bottom: 8px;
-`;
+  const handleImageError = (error) => {
+    console.log('Image loading error:', {
+      businessName: biz.name,
+      photoReference: biz.photos?.[0]?.photo_reference || 'No photo reference',
+      hasPhotosArray: Boolean(biz.photos),
+      photosLength: biz.photos?.length || 0,
+      errorType: error.type,
+      errorMessage: error.message || 'No error message available'
+    });
+    setImageError(true);
+    setImageLoading(false);
+  };
 
-const BusinessName = styled.h2`
-  font-size: 18px;
-  color: #333;
-  margin-bottom: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-`;
+  const renderBusinessImage = () => {
+    if (!biz.photos?.[0]?.photo_reference) {
+      return (
+        <div className="business-photo-fallback">
+          <span className="business-photo-initial">{biz.name[0]}</span>
+          <span className="business-photo-error">No image available</span>
+        </div>
+      );
+    }
 
-const BusinessInfo = styled.p`
-  font-size: 14px;
-  margin: 5px 0;
-  color: #555;
-  max-height: 50px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-`;
+    return !imageError ? (
+      <img
+        src={`${process.env.REACT_APP_API_URL}/api/place-photo?photo_reference=${biz.photos[0].photo_reference}`}
+        alt={biz.name}
+        className={`business-photo ${imageLoading ? 'loading' : ''}`}
+        onError={handleImageError}
+        onLoad={() => setImageLoading(false)}
+      />
+    ) : (
+      <div className="business-photo-fallback">
+        <span className="business-photo-initial">{biz.name[0]}</span>
+        <span className="business-photo-error">Failed to load image</span>
+      </div>
+    );
+  };
 
-const ContactLink = styled.a`
-  display: inline-block;
-  color: #3498db;
-  text-decoration: none;
-  font-weight: bold;
-  margin-right: 10px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  
-  &:hover {
-    text-decoration: underline;
-  }
-`;
+  const formatWebsiteUrl = (url) => {
+    if (!url) return null;
+    
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname + urlObj.pathname.replace(/\/$/, '');
+    } catch (e) {
+      console.error('Invalid URL:', url, e);
+      return url;
+    }
+  };
 
-const WhatsappLink = styled(ContactLink)`
-  color: #25D366;
-`;
-
-const DirectionsButton = styled.a`
-  display: inline-block;
-  background-color: #2196F3;
-  color: white !important;
-  padding: 10px 14px;
-  border-radius: 6px;
-  text-decoration: none;
-  font-size: 14px;
-  transition: background 0.3s ease;
-  text-align: center;
-  width: 100%;
-  border: none;
-  margin-top: 15px;
-  
-  &:hover {
-    background-color: #1976D2;
-    color: white;
-  }
-`;
-
-const MapContainer = styled.div`
-  margin-top: 15px;
-  width: 100%;
-  position: relative;
-`;
-
-const MapImage = styled.img`
-  width: 100%;
-  height: auto;
-  max-height: 150px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-`;
-
-const Coordinates = styled.div`
-  font-size: 12px;
-  color: #777;
-  margin-top: 5px;
-  text-align: right;
-`;
-
-const ViewImagesButton = styled.button`
-  background-color: #2196F3;
-  color: white;
-  padding: 10px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  width: 100%;
-  text-align: center;
-  transition: background 0.3s ease;
-  border: none;
-  margin-top: 10px;
-  
-  &:hover {
-    background-color: #1976D2;
-  }
-`;
-
-const Modal = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-`;
-
-const ModalContent = styled.div`
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  width: 400px;
-  text-align: center;
-  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
-  position: relative;
-`;
-
-const CloseButton = styled.button`
-  position: absolute;
-  top: 10px;
-  right: 15px;
-  background: transparent;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  color: #555;
-  
-  &:hover {
-    color: red;
-  }
-`;
-
-const ModalImage = styled.img`
-  max-width: 100%;
-  border-radius: 8px;
-  margin-top: 10px;
-`;
-
-const ResultsContainer = styled.div`
-  max-width: 1000px;
-  margin: 20px auto;
-  padding: 20px;
-`;
-
-const ResultsTitle = styled.h2`
-  font-size: 22px;
-  font-weight: 600;
-  text-align: center;
-  margin-bottom: 20px;
-`;
-
-const ResultsGrid = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 20px;
-`;
-
-const BusinessCard = ({ biz, userLocation }) => {
-  const [expanded, setExpanded] = useState(false);
-  const [bookmarked, setBookmarked] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [imageUrls, setImageUrls] = useState([]);
+  const formatWhatsAppNumber = (phone) => {
+    if (!phone) return null;
+    return phone.replace(/\D/g, '');
+  };
 
   useEffect(() => {
-    console.log("[BusinessCard] Received business data:", biz);
-    console.log("[BusinessCard] User location:", userLocation);
-    
-    if (!biz || !biz.place_id) {
-      console.warn("[BusinessCard] Missing critical business data:", biz);
-    }
-  }, [biz, userLocation]);
+    console.group(`📇 Business Card Data: ${biz.name}`);
+    console.log('Phone Numbers:', {
+      formatted: biz.formatted_phone_number,
+      raw: biz.phone,
+      hasPhone: Boolean(biz.formatted_phone_number || biz.phone)
+    });
+    console.log('Contact Info:', {
+      email: biz.email || 'none',
+      website: biz.website || 'none',
+      address: biz.address || 'none'
+    });
+    console.log('Location:', {
+      lat: biz.latitude,
+      lng: biz.longitude,
+      distance: biz.distance
+    });
+    console.groupEnd();
+  }, [biz]);
 
-  const toggleAccordion = () => setExpanded(!expanded);
-  
-  const toggleBookmark = () => {
-    console.log("[BusinessCard] Toggling bookmark state:", !bookmarked);
-    setBookmarked(!bookmarked);
-  };
-  
-  const toggleModal = async () => {
-    console.log("[BusinessCard] Toggle modal, current state:", showModal);
-    if (!showModal) {
-      console.log("[BusinessCard] Modal opening, fetching images...");
-      await fetchImages();
-    }
-    setShowModal(!showModal);
-  };
+  console.log('Business data received:', {
+    name: biz.name,
+    phone: biz.phone || 'Not provided',
+    email: biz.email || 'Not provided',
+    hasPhotos: Boolean(biz.photos?.length)
+  });
 
-  // Format phone number for WhatsApp
-  const formatPhoneForWhatsApp = (phone) => {
-    if (!phone) {
-      console.warn("[BusinessCard] Attempt to format undefined phone number");
-      return "";
-    }
-    const formatted = phone.replace(/\D/g, "");
-    console.log("[BusinessCard] Formatted phone for WhatsApp:", formatted);
-    return formatted;
-  };
-
-  // Function to fetch images dynamically
-  const fetchImages = async () => {
-    try {
-      const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
-      console.log("[BusinessCard] Fetching images from:", `${API_URL}/images?place_id=${biz.place_id}`);
-      
-      const start = performance.now();
-      const response = await fetch(`${API_URL}/images?place_id=${biz.place_id}`);
-      const responseTime = performance.now() - start;
-      
-      console.log(`[BusinessCard] Image API response time: ${responseTime.toFixed(2)}ms`);
-      
-      if (!response.ok) {
-        console.error(`[BusinessCard] API error: ${response.status} ${response.statusText}`);
-        return;
-      }
-      
-      const data = await response.json();
-      console.log("[BusinessCard] Image API response data:", data);
-  
-      if (data.imageUrls && data.imageUrls.length > 0) {
-        console.log(`[BusinessCard] Found ${data.imageUrls.length} images for business`);
-        setImageUrls(data.imageUrls);
-      } else {
-        console.log("[BusinessCard] No images found for this business");
-      }
-    } catch (error) {
-      console.error("[BusinessCard] Error fetching images:", error);
-      setImageUrls([]);
-    }
-  };
-
-  // Function to get the map image URL through our secure proxy
-  const getMapImageUrl = (lat, lng) => {
-    const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
-    return `${API_URL}/api/map-image?lat=${lat}&lng=${lng}&width=280&height=150`;
-  };
-
-  // NEW: Function to get directions URL with user's current location as origin
-  const getDirectionsUrl = (destinationLat, destinationLng) => {
-    let url = `https://www.google.com/maps/dir/?api=1&destination=${destinationLat},${destinationLng}`;
-    
-    // Add origin (user location) if available
-    if (userLocation && userLocation.lat && userLocation.lng) {
-      url += `&origin=${userLocation.lat},${userLocation.lng}`;
-      console.log("[BusinessCard] Using user's current location for directions:", userLocation);
-    } else {
-      console.log("[BusinessCard] No user location available, letting Google Maps determine current location");
-    }
-    
-    return url;
-  };
-
-  console.log("[BusinessCard] Rendering for business:", biz?.name);
+  console.log('Business contact details:', {
+    name: biz.name,
+    formatted_phone: biz.formatted_phone_number,
+    raw_phone: biz.phone,
+    hasPhone: Boolean(biz.formatted_phone_number || biz.phone)
+  });
 
   return (
-    <Card>
-      {/* Business Logo */}
-      {biz.logo && (
-        <Logo
-          src={biz.logo}
-          alt={`${biz.name} logo`}
-          onLoad={() => console.log("[BusinessCard] Logo image loaded")}
-          onError={(e) => console.warn("[BusinessCard] Error loading logo:", e.target.src)}
-        />
-      )}
+    <div className="business-card">
+      <div className="business-card__header">
+        <div className="business-header-content">
+          <h2 className="business-name">
+            <div className="business-name-text" title={biz.name}>
+              {biz.name}
+            </div>
+          </h2>
+          <div className="business-rating">⭐ {biz.rating || 'N/A'}</div>
+          <div className="business-contact-info">
+            {(biz.formatted_phone_number || biz.phone) && (
+              <div className="business-phone">
+                <FaPhoneAlt className="contact-icon" />
+                <a 
+                  href={`tel:${biz.phone || biz.formatted_phone_number}`} 
+                  className="contact-link"
+                >
+                  {biz.formatted_phone_number || biz.phone}
+                </a>
+              </div>
+            )}
 
-      {/* Bookmark Icon */}
-      <div style={{ float: 'right', cursor: 'pointer' }} onClick={toggleBookmark}>
-        {bookmarked ? <FaStar color="#f39c12" /> : <FaRegStar color="#ccc" />}
-      </div>
-
-      <BusinessName>{biz.name}</BusinessName>
-      <BusinessInfo>
-        ⭐ {biz.aggregatedReviews ? biz.aggregatedReviews : "No"} reviews &nbsp;
-        ({biz.rating ? biz.rating : "No rating"})
-      </BusinessInfo>
-
-      {/* Distance Handling with validation */}
-      {(() => {
-        if (biz.distance && !isNaN(biz.distance)) {
-          console.log("[BusinessCard] Valid distance:", biz.distance);
-          return (
-            <BusinessInfo>
-              <strong>Distance:</strong> {parseFloat(biz.distance).toFixed(2)} km
-            </BusinessInfo>
-          );
-        } else {
-          console.warn("[BusinessCard] Invalid distance value:", biz.distance);
-          return (
-            <BusinessInfo>
-              <strong>Distance:</strong> N/A
-            </BusinessInfo>
-          );
-        }
-      })()}
-
-      <BusinessInfo>{biz.address}</BusinessInfo>
-
-      {/* Contact & Website */}
-      <div style={{ marginTop: '15px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-        {biz.phone && (
-          <ContactLink 
-            href={`tel:${biz.phone}`} 
-            onClick={() => console.log("[BusinessCard] Phone call initiated:", biz.phone)}
-          >
-            <FaPhoneAlt /> {biz.phone}
-          </ContactLink>
-        )}
-        {biz.phone && (
-          <WhatsappLink
-            href={`https://wa.me/${formatPhoneForWhatsApp(biz.phone)}?text=Hi, I saw your listing on Local Service Finder`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => console.log("[BusinessCard] WhatsApp link clicked:", biz.phone)}
-          >
-            <FaWhatsapp /> WhatsApp
-          </WhatsappLink>
-        )}
-        {biz.website && (
-          <ContactLink 
-            href={biz.website} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            onClick={() => console.log("[BusinessCard] Website link clicked:", biz.website)}
-          >
-            🌐 Visit Website
-          </ContactLink>
-        )}
-      </div>
-
-      {/* Show button only if images exist */}
-      {imageUrls.length > 0 && (
-        <div>
-          <ViewImagesButton onClick={toggleModal}>
-            📸 View Images ({imageUrls.length})
-          </ViewImagesButton>
+            {(biz.formatted_phone_number || biz.phone) && (
+              <div className="business-whatsapp">
+                <FaWhatsapp className="contact-icon whatsapp-icon" />
+                <a 
+                  href={`https://wa.me/${formatWhatsAppNumber(biz.phone || biz.formatted_phone_number)}`} 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="contact-link whatsapp-link"
+                >
+                  WhatsApp
+                </a>
+              </div>
+            )}
+            
+            {biz.website && (
+              <div className="business-website">
+                <FaGlobe className="contact-icon" />
+                <a 
+                  href={biz.website}
+                  target="_blank"
+                  rel="noopener noreferrer" 
+                  className="contact-link website-link"
+                >
+                  {formatWebsiteUrl(biz.website)}
+                </a>
+              </div>
+            )}
+          </div>
         </div>
-      )}
-
-      {/* Get Directions Button - UPDATED with user location */}
-      <div>
-        {biz.latitude && biz.longitude ? (
-          <DirectionsButton
-            href={getDirectionsUrl(biz.latitude, biz.longitude)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => console.log("[BusinessCard] Directions requested:", {
-              from: userLocation ? `${userLocation.lat},${userLocation.lng}` : "Current location (determined by Google)",
-              to: `${biz.latitude},${biz.longitude}`
-            })}
-          >
-            📍 Get Directions {userLocation ? "(From Your Location)" : ""}
-          </DirectionsButton>
-        ) : (
-          <span style={{ color: '#999', display: 'block', marginTop: '10px' }}>
-            No location data available for directions
-          </span>
+        {biz.logo && (
+          <img
+            src={biz.logo}
+            alt={`${biz.name} logo`}
+            className="business-logo"
+            onError={(e) => e.target.style.display = 'none'}
+          />
         )}
       </div>
 
-      {/* Mini Map - SECURE IMPLEMENTATION */}
-      {biz.latitude && biz.longitude ? (
-        <MapContainer>
-          <MapImage
-            src={getMapImageUrl(biz.latitude, biz.longitude)}
-            alt="Mini Map"
-            onLoad={() => console.log("[BusinessCard] Static map loaded")}
+      <div className="business-image-container">
+        {renderBusinessImage()}
+        {imageLoading && (
+          <div className="business-photo-loading">
+            <div className="loading-spinner"></div>
+          </div>
+        )}
+      </div>
+
+      <div className="business-info">
+        <p>{biz.address}</p>
+        <p>{biz.distance} km away</p>
+      </div>
+
+      {biz.latitude && biz.longitude && (
+        <div className="map-container">
+          <img
+            src={`${process.env.REACT_APP_API_URL}/api/map-image?lat=${biz.latitude}&lng=${biz.longitude}&zoom=15&width=400&height=200`}
+            alt="Location Map"
+            className="map-image"
             onError={(e) => {
-              console.error("[BusinessCard] Error loading static map:", e);
               e.target.parentElement.innerHTML = `
-                <div style="width:100%; background-color:#f3f4f6; height:150px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
-                  <p style="color:#6b7280; text-align:center;">
-                    📍 Location at ${Number(biz.latitude).toFixed(4)}, ${Number(biz.longitude).toFixed(4)}
-                  </p>
+                <div class="map-fallback">
+                  📍 ${biz.address}<br>
+                  (${biz.latitude.toFixed(6)}, ${biz.longitude.toFixed(6)})
                 </div>
               `;
             }}
           />
-          <Coordinates>
-            Coordinates: {biz.latitude}, {biz.longitude}
-          </Coordinates>
-        </MapContainer>
-      ) : (
-        <BusinessInfo style={{ marginTop: '10px' }}>Map data not available</BusinessInfo>
+        </div>
       )}
 
-      {/* Modal for Viewing Images */}
-      {showModal && (
-        <Modal>
-          <ModalContent>
-            <h2 style={{ fontSize: '18px', fontWeight: 'bold' }}>Images for {biz.name}</h2>
-            <CloseButton 
-              onClick={toggleModal}
-              aria-label="Close modal"
-            >
-              ✖
-            </CloseButton>
-            {imageUrls.length > 0 ? (
-              <>
-                <p style={{ marginBottom: '10px', fontSize: '14px', color: '#555' }}>Showing {imageUrls.length} images</p>
-                {imageUrls.map((url, index) => (
-                  <ModalImage 
-                    key={index} 
-                    src={url} 
-                    alt={`${biz.name} - Image ${index + 1}`} 
-                    onLoad={() => console.log(`[BusinessCard] Modal image ${index + 1} loaded`)}
-                    onError={() => console.error(`[BusinessCard] Modal image ${index + 1} failed to load:`, url)}
-                  />
-                ))}
-              </>
-            ) : (
-              <p>No images available.</p>
-            )}
-          </ModalContent>
-        </Modal>
-      )}
-    </Card>
+      <div className="action-buttons">
+        <a
+          href={`https://www.google.com/maps/dir/?api=1&destination=${biz.latitude},${biz.longitude}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="primary-button"
+        >
+          Get Directions
+        </a>
+      </div>
+    </div>
   );
 };
 
-const BusinessCards = ({ businesses, userLocation }) => {
-  console.log("[BusinessCards] Rendering with businesses:", businesses);
-  console.log("[BusinessCards] User location for directions:", userLocation);
-  
+const BusinessCards = ({ businesses }) => {
+  const [sortedBusinesses, setSortedBusinesses] = useState(businesses);
+  const [showWelcome, setShowWelcome] = useState(false);
+
   useEffect(() => {
-    if (businesses && businesses.length > 0) {
-      console.log("[BusinessCards] First business data structure:", businesses[0]);
-      console.log(`[BusinessCards] Received ${businesses.length} businesses`);
-    } else {
-      console.warn("[BusinessCards] No businesses received or empty array");
-    }
+    setSortedBusinesses(businesses);
   }, [businesses]);
 
-  if (!businesses || businesses.length === 0) {
-    console.log("[BusinessCards] No results to display");
-    return (
-      <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-        <p style={{ color: '#555', fontSize: '18px', marginBottom: '15px' }}>No results found.</p>
-        <p style={{ color: '#999', fontSize: '14px' }}>
-          Try adjusting your search criteria or checking your network connection.
-        </p>
-        {/* Debug info for developers */}
-        <div style={{ marginTop: '24px', padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '8px', display: 'inline-block', textAlign: 'left' }}>
-          <h3 style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>Debug Info:</h3>
-          <p style={{ fontSize: '12px', color: '#666' }}>Timestamp: {new Date().toISOString()}</p>
-          <p style={{ fontSize: '12px', color: '#666' }}>Businesses: {businesses ? 'Array(empty)' : 'null/undefined'}</p>
-          <p style={{ fontSize: '12px', color: '#666' }}>
-            User Location: {userLocation ? `${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}` : 'Not provided'}
-          </p>
-          <button 
-            onClick={() => console.log('Current business data:', businesses)}
-            style={{ fontSize: '12px', color: '#3498db', marginTop: '8px', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}
-          >
-            Log Data to Console
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const handleSort = (option) => {
+    let sorted = [...businesses];
+    switch (option) {
+      case 'reviews':
+        sorted.sort((a, b) => b.rating - a.rating);
+        break;
+      case 'distance':
+        sorted.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
+        break;
+      case 'relevance':
+        sorted = [...businesses];
+        break;
+      case 'expanded':
+        sorted = [...businesses];
+        break;
+      default:
+        sorted = [...businesses];
+    }
+    setSortedBusinesses(sorted);
+  };
+
+  if (!businesses?.length) return <div className="no-results">No results found</div>;
 
   return (
-    <ResultsContainer>
-      <ResultsTitle>
-        🔎 Search Results ({businesses.length})
-      </ResultsTitle>
-      <ResultsGrid>
-        {businesses.map((biz, index) => (
-          <BusinessCard 
-            key={index} 
-            biz={biz} 
-            userLocation={userLocation}
-          />
-        ))}
-      </ResultsGrid>
-    </ResultsContainer>
+    <div className="outer-container">
+      <div className="business-cards-container">
+        <div className="business-cards-header">
+          <h2>Local Businesses Found</h2>
+          <p>Showing {businesses.length} results in your area</p>
+        </div>
+        <div className="business-cards-grid" style={{ margin: '0 auto' }}>
+          {sortedBusinesses.map(biz => (
+            <BusinessCard key={biz.place_id} biz={biz} />
+          ))}
+        </div>
+      </div>
+    </div>
   );
 };
 

@@ -40,7 +40,253 @@ app.options('*', cors());
 
 app.use(express.json());
 
-// Mount all your routes
+// Debug logging for routes
+app.use((req, res, next) => {
+  console.log(`📌 ${req.method} request received for: ${req.url}`);
+  next();
+});
+
+// Add environment check endpoint
+app.get('/api/env-check', (req, res) => {
+  res.json({
+    hasGoogleMapsApiKey: !!process.env.GOOGLE_MAPS_API_KEY,
+    environment: process.env.NODE_ENV,
+    serverTime: new Date().toISOString()
+  });
+});
+
+// Move the AI chat endpoint BEFORE mounting the routes
+app.post('/api/ai-chat', (req, res) => {
+  try {
+    console.log('📩 AI Chat request received:', {
+      body: req.body,
+      url: req.url,
+      method: req.method,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Validate request body exists
+    if (!req.body) {
+      console.error('❌ Missing request body');
+      return res.status(400).json({
+        error: 'Missing request body',
+        received: req.body
+      });
+    }
+    
+    const { message, isConfirmation, context } = req.body;
+    
+    // Validate message exists and is a string
+    if (!message) {
+      console.error('❌ Missing message in request:', req.body);
+      return res.status(400).json({
+        error: 'Message is required',
+        received: req.body
+      });
+    }
+    
+    if (typeof message !== 'string') {
+      console.error('❌ Message is not a string:', typeof message);
+      return res.status(400).json({
+        error: 'Message must be a string',
+        received: typeof message
+      });
+    }
+
+    // Process the message
+    console.log('💬 Processing message:', message);
+    console.log('💬 Context:', context);
+    
+    const keywords = message.toLowerCase().trim();
+    let response = {
+      message: '',
+      options: [],
+      searchQuery: null,
+      needsConfirmation: false
+    };
+
+    // Check if this is a follow-up refinement
+    const hasResults = context?.businesses && context.businesses.length > 0;
+    const previousQuery = context?.previousQuery;
+
+    // Enhanced conversation logic with follow-up capabilities
+    if (hasResults) {
+      // Handle follow-up conversation for existing results
+      if (keywords.includes('higher rated') || keywords.includes('better rating')) {
+        response = {
+          message: `I'll search for higher-rated ${previousQuery || 'businesses'} for you.`,
+          confirmedSearch: `best rated ${previousQuery || 'businesses'}`,
+          searchQuery: `best rated ${previousQuery || 'businesses'}`,
+          options: []
+        };
+      } else if (keywords.includes('closer') || keywords.includes('nearby') || keywords.includes('near me')) {
+        response = {
+          message: `I'll find ${previousQuery || 'businesses'} closer to your location.`,
+          confirmedSearch: `${previousQuery || 'businesses'} very close to me`,
+          searchQuery: `${previousQuery || 'businesses'} very close to me`,
+          options: []
+        };
+      } else if (keywords.includes('different') || keywords.includes('something else')) {
+        response = {
+          message: "What type of business would you like to search for instead?",
+          options: ["Restaurants", "Services", "Shopping"],
+          needsConfirmation: false
+        };
+      } else if (keywords.includes('more info') || keywords.includes('details') || keywords.includes('tell me about')) {
+        response = {
+          message: `I've shown you the best ${previousQuery || 'businesses'} in your area. You can tap on any business card to see more details like contact information, ratings, and location.`,
+          options: ["Show higher rated places", "Find places closer to me", "Different type of business"],
+          needsConfirmation: false
+        };
+      } else {
+        // Continue with regular search flow
+        if (isConfirmation) {
+          if (keywords.includes('yes') || keywords.includes('search now')) {
+            const originalQuery = context?.previousQuery || context?.searchQuery || message;
+            response = {
+              message: `Searching for "${originalQuery}"...`,
+              confirmedSearch: originalQuery,
+              searchQuery: originalQuery,
+              options: []
+            };
+          } else if (keywords.includes('plumber') || keywords.includes('electrician') || 
+                    keywords.includes('mechanic') || keywords.includes('cleaning')) {
+            response = {
+              message: `Searching for "${message}" in your area...`,
+              confirmedSearch: message,
+              searchQuery: message,
+              options: []
+            };
+          } else {
+            response = {
+              message: "Okay, what would you like to search for instead?",
+              options: ["Restaurants", "Services", "Shopping"],
+              needsConfirmation: false
+            };
+          }
+        } else if (keywords.includes('help') || keywords.includes('hi') || keywords.includes('hello')) {
+          response = {
+            message: "Hi! I can help you find local businesses. What are you looking for?",
+            options: ["Restaurants", "Services", "Shopping"],
+            needsConfirmation: false
+          };
+        } else if (keywords.includes('restaurant') || keywords.includes('food')) {
+          response = {
+            message: "What kind of food are you interested in?",
+            options: ["Italian", "Chinese", "Fast Food", "Indian"],
+            needsConfirmation: true
+          };
+        } else if (keywords.includes('service') || keywords.includes('plumber') || keywords.includes('electrician')) {
+          if (keywords.includes('plumber') || keywords.includes('electrician') || 
+              keywords.includes('mechanic') || keywords.includes('cleaning')) {
+            response = {
+              message: `Searching for "${message}" in your area...`,
+              confirmedSearch: message,
+              searchQuery: message,
+              options: []
+            };
+          } else {
+            response = {
+              message: "What type of service do you need?",
+              options: ["Plumber", "Electrician", "Mechanic", "Cleaning"],
+              needsConfirmation: true,
+              searchQuery: "services"
+            };
+          }
+        } else {
+          response = {
+            message: `Would you like me to search for "${message}"?`,
+            options: ["Yes, search now", "No, let me rephrase"],
+            searchQuery: message,
+            needsConfirmation: true,
+            previousQuery: message
+          };
+        }
+      }
+    } else {
+      if (isConfirmation) {
+        if (keywords.includes('yes') || keywords.includes('search now')) {
+          const originalQuery = context?.previousQuery || context?.searchQuery || message;
+          response = {
+            message: `Searching for "${originalQuery}"...`,
+            confirmedSearch: originalQuery,
+            searchQuery: originalQuery,
+            options: []
+          };
+        } else if (keywords.includes('plumber') || keywords.includes('electrician') || 
+                  keywords.includes('mechanic') || keywords.includes('cleaning')) {
+          response = {
+            message: `Searching for "${message}" in your area...`,
+            confirmedSearch: message,
+            searchQuery: message,
+            options: []
+          };
+        } else {
+          response = {
+            message: "Okay, what would you like to search for instead?",
+            options: ["Restaurants", "Services", "Shopping"],
+            needsConfirmation: false
+          };
+        }
+      } else if (keywords.includes('help') || keywords.includes('hi') || keywords.includes('hello')) {
+        response = {
+          message: "Hi! I can help you find local businesses. What are you looking for?",
+          options: ["Restaurants", "Services", "Shopping"],
+          needsConfirmation: false
+        };
+      } else if (keywords.includes('restaurant') || keywords.includes('food')) {
+        response = {
+          message: "What kind of food are you interested in?",
+          options: ["Italian", "Chinese", "Fast Food", "Indian"],
+          needsConfirmation: true
+        };
+      } else if (keywords.includes('service') || keywords.includes('plumber') || keywords.includes('electrician')) {
+        if (keywords.includes('plumber') || keywords.includes('electrician') || 
+            keywords.includes('mechanic') || keywords.includes('cleaning')) {
+          response = {
+            message: `Searching for "${message}" in your area...`,
+            confirmedSearch: message,
+            searchQuery: message,
+            options: []
+          };
+        } else {
+          response = {
+            message: "What type of service do you need?",
+            options: ["Plumber", "Electrician", "Mechanic", "Cleaning"],
+            needsConfirmation: true,
+            searchQuery: "services"
+          };
+        }
+      } else {
+        response = {
+          message: `Would you like me to search for "${message}"?`,
+          options: ["Yes, search now", "No, let me rephrase"],
+          searchQuery: message,
+          needsConfirmation: true,
+          previousQuery: message
+        };
+      }
+    }
+
+    console.log('📤 AI Response prepared:', response);
+    
+    // Set proper content type header
+    res.setHeader('Content-Type', 'application/json');
+    
+    // Return the response
+    return res.status(200).json(response);
+    
+  } catch (error) {
+    console.error('❌ Unhandled exception in AI chat endpoint:', error);
+    return res.status(500).json({
+      error: 'Server error',
+      message: error.message || 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Mount all your routes AFTER defining the direct endpoints
 app.use('/api/places', placesRoutes);
 app.use('/api', apiRoutes);  // Generic API routes
 app.use('/api', aiRoutes);   // AI-specific routes
@@ -147,8 +393,39 @@ app.get('/api/query', async (req, res) => {
 /**
  * Search endpoint for real business data
  */
+// Add mock data generator function
+const generateEnhancedMockData = (query, lat, lng) => {
+  const categories = ['Restaurant', 'Cafe', 'Shop', 'Service', 'Store'];
+  const adjectives = ['Premium', 'Elite', 'Best', 'Local', 'Popular'];
+  
+  return Array(5).fill(null).map((_, i) => ({
+    place_id: `mock-${Date.now()}-${i}`,
+    name: `${adjectives[i % adjectives.length]} ${query} ${categories[i % categories.length]}`,
+    address: `${100 + i} Main Street, Business District`,
+    latitude: parseFloat(lat) + (Math.random() - 0.5) * 0.01,
+    longitude: parseFloat(lng) + (Math.random() - 0.5) * 0.01,
+    rating: (3 + Math.random() * 2).toFixed(1),
+    aggregatedReviews: Math.floor(50 + Math.random() * 200),
+    distance: (0.2 + Math.random() * 2).toFixed(2),
+    formatted_phone_number: `+27 21 555 ${1000 + i}`, // Changed from phone to formatted_phone_number
+    phone: `+27215551${1000 + i}`, // Add raw phone number
+    email: `info@${query.toLowerCase().replace(/\s+/g, '')}${i + 1}.com`, // Add email
+    logo: 'https://maps.gstatic.com/mapfiles/place_api/icons/v1/png_71/generic_business-71.png',
+    isMock: true
+  }));
+};
+
+// Update search endpoint
 app.get('/api/search', async (req, res) => {
   const { query, lat, lng } = req.query;
+  
+  console.log('\n🔍 Search Request:', {
+    endpoint: '/api/search',
+    query,
+    lat,
+    lng,
+    timestamp: new Date().toISOString()
+  });
   
   if (!query || !lat || !lng) {
     return res.status(400).json({ 
@@ -158,66 +435,24 @@ app.get('/api/search', async (req, res) => {
   }
   
   try {
-    // Use the Google Places API key from environment variables
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     
     if (!apiKey) {
-      console.error('Missing Google Maps API key in server environment');
-      console.log('Falling back to mock data since API key is missing');
-      
-      // Return mock data when API key is missing
-      const mockBusinesses = [
-        {
-          place_id: 'mock-place-1',
-          name: `${query} Service`,
-          address: '123 Main St, Business District',
-          latitude: parseFloat(lat) + 0.001,
-          longitude: parseFloat(lng) + 0.001,
-          rating: 4.5,
-          aggregatedReviews: 120,
-          distance: 0.5,
-          phone: '+27215551234',
-          website: 'https://example.com',
-          logo: 'https://via.placeholder.com/60',
-        },
-        {
-          place_id: 'mock-place-2',
-          name: `Premium ${query}`,
-          address: '456 Oak St, Town Center',
-          latitude: parseFloat(lat) - 0.001,
-          longitude: parseFloat(lng) - 0.002,
-          rating: 4.2,
-          aggregatedReviews: 85,
-          distance: 1.2,
-          phone: '+27215557890',
-          website: 'https://example2.com',
-          logo: 'https://via.placeholder.com/60',
-        },
-        {
-          place_id: 'mock-place-3',
-          name: `${query} Elite`,
-          address: '789 Plaza Ave, Downtown',
-          latitude: parseFloat(lat) + 0.002,
-          longitude: parseFloat(lng) + 0.003,
-          rating: 4.8,
-          aggregatedReviews: 210,
-          distance: 0.8,
-          phone: '+27215559012',
-          website: 'https://example3.com',
-          logo: 'https://via.placeholder.com/60',
+      console.error('API key missing - using enhanced mock data');
+      return res.json({
+        businesses: generateEnhancedMockData(query, lat, lng),
+        meta: {
+          isMockData: true,
+          reason: 'API key not configured',
+          timestamp: new Date().toISOString()
         }
-      ];
-      
-      return res.json({ businesses: mockBusinesses });
+      });
     }
-    
-    // Real Google Places API implementation
-    const radius = 5000; // 5km radius
+
+    // First, get the nearby places
+    const radius = 5000;
     const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&keyword=${encodeURIComponent(query)}&key=${apiKey}`;
     
-    console.log(`[Server] Searching for "${query}" near ${lat},${lng}`);
-    
-    // Fetch places from Google API
     const response = await axios.get(placesUrl);
     
     if (response.data.status !== 'OK' && response.data.status !== 'ZERO_RESULTS') {
@@ -229,40 +464,124 @@ app.get('/api/search', async (req, res) => {
       });
     }
     
-    // Transform data to match your app's format
-    const businesses = response.data.results.map(place => {
-      // Calculate distance (approximate)
-      const R = 6371; // Earth's radius in km
-      const dLat = (place.geometry.location.lat - lat) * Math.PI / 180;
-      const dLon = (place.geometry.location.lng - lng) * Math.PI / 180;
-      const a = 
-        Math.sin(dLat/2) * Math.sin(dLat/2) +
-        Math.cos(lat * Math.PI / 180) * Math.cos(place.geometry.location.lat * Math.PI / 180) * 
-        Math.sin(dLon/2) * Math.sin(dLon/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      const distance = R * c;
-      
-      return {
-        place_id: place.place_id,
-        name: place.name,
-        address: place.vicinity,
-        latitude: place.geometry.location.lat,
-        longitude: place.geometry.location.lng,
-        rating: place.rating || 'No rating',
-        aggregatedReviews: place.user_ratings_total || 0,
-        distance: distance.toFixed(2),
-        phone: place.formatted_phone_number || '',
-        website: place.website || '',
-        logo: place.icon || '',
-      };
+    // Get detailed information for each place
+    const detailedBusinesses = await Promise.all(
+      response.data.results.map(async (place, index) => {
+        try {
+          console.log(`\n📍 Fetching details for business ${index + 1}/${response.data.results.length}: ${place.name}`);
+          
+          const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_phone_number,international_phone_number,formatted_address,website,url,rating,user_ratings_total,geometry,type&key=${apiKey}`;
+          const detailsResponse = await axios.get(detailsUrl);
+          const details = detailsResponse.data.result;
+
+          console.log('📱 Contact Info:', {
+            business: place.name,
+            formatted_phone: details.formatted_phone_number || 'none',
+            international_phone: details.international_phone_number || 'none',
+            website: details.website || 'none'
+          });
+
+          // Calculate distance...
+          const R = 6371;
+          const dLat = (place.geometry.location.lat - lat) * Math.PI / 180;
+          const dLon = (place.geometry.location.lng - lng) * Math.PI / 180;
+          const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat * Math.PI / 180) * Math.cos(place.geometry.location.lat * Math.PI / 180) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          const distance = R * c;
+
+          // Update the business mapping
+          return {
+            place_id: place.place_id,
+            name: place.name,
+            address: place.vicinity || details.formatted_address,
+            latitude: place.geometry.location.lat,
+            longitude: place.geometry.location.lng,
+            rating: place.rating || 'No rating',
+            aggregatedReviews: place.user_ratings_total || 0,
+            distance: distance.toFixed(2),
+            // Update these fields to ensure phone numbers are captured
+            formatted_phone_number: details.formatted_phone_number || null,
+            phone: details.international_phone_number || details.formatted_phone_number || null,
+            email: details.email || null,
+            website: details.website || null,
+            google_maps_url: details.url || null,
+            logo: place.icon || '',
+            photos: place.photos ? place.photos.map(photo => ({
+              photo_reference: photo.photo_reference,
+              width: photo.width,
+              height: photo.height
+            })) : []
+          };
+        } catch (detailsError) {
+          console.error(`❌ Details fetch failed for ${place.name}:`, detailsError.message);
+          // Return basic place info if details fetch fails
+          return {
+            place_id: place.place_id,
+            name: place.name,
+            address: place.vicinity,
+            latitude: place.geometry.location.lat,
+            longitude: place.geometry.location.lng,
+            rating: place.rating || 'No rating',
+            aggregatedReviews: place.user_ratings_total || 0,
+            distance: distance.toFixed(2),
+            logo: place.icon || '',
+            photos: place.photos ? place.photos.map(photo => ({
+              photo_reference: photo.photo_reference,
+              width: photo.width,
+              height: photo.height
+            })) : []
+          };
+        }
+      })
+    );
+
+    console.log(`\n✅ Search completed: Found ${detailedBusinesses.length} businesses`);
+    console.log('📊 First business preview:', {
+      name: detailedBusinesses[0]?.name,
+      hasPhone: Boolean(detailedBusinesses[0]?.formatted_phone_number),
+      phone: detailedBusinesses[0]?.formatted_phone_number
     });
-    
-    console.log(`[Server] Found ${businesses.length} businesses matching "${query}"`);
-    
-    res.json({ businesses });
+
+    res.json({ businesses: detailedBusinesses });
   } catch (error) {
-    console.error('Error searching for businesses:', error.message);
-    res.status(500).json({ error: 'Failed to search businesses' });
+    console.error('❌ Search error:', error);
+    // Fallback to mock data on error
+    return res.json({
+      businesses: generateEnhancedMockData(query, lat, lng),
+      meta: {
+        isMockData: true,
+        reason: 'API error fallback',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+/**
+ * Place photo proxy endpoint
+ */
+app.get('/api/place-photo', async (req, res) => {
+  const { photo_reference } = req.query;
+  
+  if (!photo_reference) {
+    return res.status(400).json({ error: 'Missing photo_reference parameter' });
+  }
+  
+  try {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo_reference}&key=${apiKey}`;
+    
+    const response = await axios.get(photoUrl, { responseType: 'arraybuffer' });
+    
+    res.set('Content-Type', response.headers['content-type']);
+    res.send(Buffer.from(response.data, 'binary'));
+  } catch (error) {
+    console.error('Error fetching place photo:', error);
+    res.status(500).json({ error: 'Failed to fetch place photo' });
   }
 });
 
@@ -296,122 +615,6 @@ app.get('/api/test', (req, res) => {
     message: 'API is working',
     timestamp: new Date().toISOString()
   });
-});
-
-// Add a direct /api/ai-chat endpoint as a fallback
-app.post('/api/ai-chat', async (req, res) => {
-  try {
-    const { message, businesses, context, agentStyle = 'casual' } = req.body;
-    
-    // Basic validation
-    if (!message) {
-      return res.status(400).json({ error: 'Message is required' });
-    }
-    
-    const apiKey = process.env.GEMINI_API_KEY;
-    
-    if (!apiKey) {
-      console.error('Missing Gemini API key');
-      // Return a mock response for testing
-      return res.json({
-        message: "I don't have access to the AI service right now, but I can help you find what you're looking for. What kind of business are you interested in?",
-        options: [
-          "Show highest rated places",
-          "Sort by distance",
-          "Budget-friendly options"
-        ]
-      });
-    }
-    
-    // Prepare conversation context
-    const conversationContext = context || [];
-    
-    // Add business information for context
-    let businessContext = '';
-    if (businesses && businesses.length > 0) {
-      businessContext = `Here are the current search results (${businesses.length} businesses): \n`;
-      businesses.forEach((business, index) => {
-        businessContext += `${index + 1}. ${business.name} - Rating: ${business.rating}, Reviews: ${business.aggregatedReviews}, Distance: ${business.distance}km\n`;
-      });
-    } else {
-      businessContext = 'There are currently no search results.';
-    }
-    
-    // Define personality traits based on agent style
-    let personality = '';
-    switch (agentStyle) {
-      case 'professional':
-        personality = 'You are professional, formal, and efficient. Use business-appropriate language and focus on delivering value efficiently.';
-        break;
-      case 'enthusiastic':
-        personality = 'You are very enthusiastic and upbeat! Use exclamation points and emoji frequently. Show excitement about helping the user!';
-        break;
-      case 'analytical':
-        personality = 'You are analytical and data-driven. Provide specific metrics and comparisons when discussing businesses. Use numbers and percentages when appropriate.';
-        break;
-      case 'casual':
-      default:
-        personality = 'You are friendly, casual, and conversational. Use relaxed language as if talking to a friend.';
-        break;
-    }
-    
-    // Mock response for testing
-    res.json({
-      message: `[${agentStyle} style] I can help you find great local businesses! What are you looking for specifically?`,
-      options: [
-        "Show highest rated places",
-        "Sort by distance",
-        "Price options"
-      ]
-    });
-    
-  } catch (error) {
-    console.error('AI chat error:', error.message);
-    res.status(500).json({ 
-      error: 'Failed to process message',
-      details: error.message
-    });
-  }
-});
-// Direct AI chat endpoint to bypass aiRoutes.js completely
-app.post('/api/ai-chat', (req, res) => {
-  console.log('Direct AI chat endpoint called');
-  try {
-    // Log request body (sanitized)
-    console.log('Request body:', JSON.stringify({
-      message: req.body?.message || '[missing]',
-      hasBusinesses: !!req.body?.businesses,
-      businessCount: req.body?.businesses?.length || 0,
-      agentStyle: req.body?.agentStyle || 'casual'
-    }));
-    
-    // Simple mock response
-    const response = {
-      message: "I'm a simple AI assistant. I can help you find local businesses. What are you looking for?",
-      options: [
-        "Show highest rated places",
-        "Sort by distance",
-        "Compare prices"
-      ]
-    };
-    
-    // Log success
-    console.log('Sending response:', JSON.stringify(response));
-    
-    // Send the response
-    return res.json(response);
-  } catch (error) {
-    // Log detailed error
-    console.error('Error in direct AI chat endpoint:', error);
-    console.error('Error details:', error.message);
-    console.error('Error stack:', error.stack);
-    
-    // Send error response
-    return res.status(500).json({ 
-      error: 'Internal server error', 
-      message: 'The server encountered an error processing your request.'
-    });
-  }
 });
 
 // Serve static assets in production

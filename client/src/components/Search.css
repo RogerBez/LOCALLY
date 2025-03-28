@@ -1,0 +1,268 @@
+.main-search-container {
+  width: 100%;
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.primary-search {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+}
+
+.search-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+}
+
+.search-button {
+  padding: 0.75rem 1.5rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ai-search-section {
+  margin-top: 1.5rem;
+}
+
+.ai-divider {
+  position: relative;
+  text-align: center;
+  margin: 1.5rem 0;
+}
+
+.ai-divider::before,
+.ai-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 45%;
+  height: 1px;
+  background-color: #e5e7eb;
+}
+
+.ai-divider::before {
+  left: 0;
+}
+
+.ai-divider::after {
+  right: 0;
+}
+
+.ai-divider span {
+  background-color: white;
+  padding: 0 1rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.unified-search-container {
+  width: 100%;
+  max-width: 800px;
+  margin: 1rem auto;
+  padding: 0 1rem;
+}
+
+.unified-search-form {
+  width: 100%;
+}
+
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  transition: border-color 0.2s;
+}
+
+.search-input-wrapper:focus-within {
+  border-color: #2196F3;
+}
+
+.ai-icon {
+  color: #2196F3;
+  font-size: 1.25rem;
+  margin-left: 0.5rem;
+}
+
+.unified-search-input {
+  flex: 1;
+  border: none;
+  padding: 0.75rem;
+  font-size: 1rem;
+  outline: none;
+  background: transparent;
+  min-width: 300px;
+}
+
+.unified-search-button {
+  background: #2196F3;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.unified-search-button:hover {
+  background: #1976D2;
+}
+
+.unified-search-button:disabled {
+  background: #9e9e9e;
+  cursor: not-allowed;
+}
+
+.ai-suggestion {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+}
+
+.suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.suggestion-chip {
+  background: #e3f2fd;
+  color: #1976D2;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.suggestion-chip:hover {
+  background: #bbdefb;
+}
+
+.location-display,
+.location-icon,
+.location-text {
+  display: none;
+}
+
+.ai-style-selector,
+.ai-style-dropdown {
+  display: none;
+}
+
+.ai-response-text {
+  font-size: 1rem;
+  color: #374151;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.ai-conversation {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ai-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.ai-icon {
+  font-size: 1.5rem;
+  color: #2196F3;
+  margin-top: 0.25rem;
+}
+
+/* Follow-up AI conversation styles */
+.ai-conversation-follow-up {
+  background: #f0f7ff;
+  border: 1px solid #dbeafe;
+}
+
+.follow-up-container {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Updated suggestion chips for follow-up */
+.ai-conversation-follow-up .suggestion-chip {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.ai-conversation-follow-up .suggestion-chip:hover {
+  background: #bfdbfe;
+}
+
+@media (max-width: 768px) {
+  .location-display {
+    display: none;
+  }
+
+  .ai-style-selector {
+    border-left: none;
+    margin: 0;
+    padding-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .main-search-container {
+    margin: 1rem auto;
+  }
+
+  .primary-search {
+    flex-direction: column;
+  }
+
+  .search-button {
+    width: 100%;
+  }
+
+  .search-input-wrapper {
+    flex-direction: row;
+  }
+
+  .suggestion-chips {
+    flex-direction: column;
+  }
+
+  .suggestion-chip {
+    width: 100%;
+    text-align: left;
+  }
+}

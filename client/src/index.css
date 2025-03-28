@@ -7,7 +7,23 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+/* Remove duplicate grid layouts */
+/* Remove .business-card class - let Tailwind handle it */
+/* Keep only essential global styles */
+
+.container {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Basic image rules */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Modal backdrop */
+.modal-backdrop {
+  backdrop-filter: blur(4px);
 }
