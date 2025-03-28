@@ -55,56 +55,10 @@ app.get('/api/env-check', (req, res) => {
   });
 });
 
-// Ensure this endpoint is defined BEFORE other route handlers
-app.post('/api/ai-chat', async (req, res) => {
-  console.log('📩 AI Chat request received:', {
-    body: req.body,
-    url: req.url,
-    method: req.method,
-    timestamp: new Date().toISOString()
-  });
-  
-  try {
-    const { message, isConfirmation, context } = req.body;
-    
-    if (!message || typeof message !== 'string') {
-      return res.status(400).json({
-        error: 'Message is required and must be a string',
-        received: message
-      });
-    }
-
-    const keywords = message.toLowerCase().trim();
-    let response = {
-      message: '',
-      options: [],
-      searchQuery: null,
-      needsConfirmation: false
-    };
-
-    // Check if this is a follow-up refinement
-    const hasResults = context?.businesses && context.businesses.length > 0;
-    const previousQuery = context?.previousQuery;
-
-    // Your existing AI chat logic here
-    // ...existing code...
-
-    console.log('📤 AI Response prepared:', response);
-    return res.json(response);
-    
-  } catch (error) {
-    console.error('❌ AI Chat error:', error);
-    return res.status(500).json({
-      error: 'Server error',
-      message: error.message
-    });
-  }
-});
-
-// Mount all your routes AFTER defining the direct endpoints
+// Mount all routes
 app.use('/api/places', placesRoutes);
 app.use('/api', apiRoutes);  // Generic API routes
-app.use('/api', aiRoutes);   // AI-specific routes
+app.use('/api', aiRoutes);   // AI-specific routes - this will handle /api/ai-chat
 
 // Add this test endpoint to check CORS configuration
 app.get('/api/cors-test', (req, res) => {
