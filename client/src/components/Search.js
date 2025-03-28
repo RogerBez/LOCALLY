@@ -51,13 +51,16 @@ const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQu
       
       console.log('🤖 Request payload:', requestBody);
 
+      // Add mode: 'cors' explicitly and include credentials
       const response = await fetch(`${API_URL}/api/ai-chat`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
+        mode: 'cors',
+        credentials: 'include'
       });
 
       console.log(`🕒 AI request took ${Date.now() - requestStartTime}ms, status: ${response.status}`);
@@ -115,19 +118,30 @@ const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQu
       }
     } catch (err) {
       console.error('❌ AI Chat error:', err);
-      console.error('Error details:', {
-        name: err.name,
-        message: err.message,
-        stack: err.stack
-      });
+      if (err.message.includes('fetch') || err.message.includes('network')) {
+        console.error('This appears to be a CORS or network error. Check server CORS configuration.');
+        
+        // Fall back to a simulated response
+        setAiResponse({
+          message: "I'm sorry, I'm having trouble connecting to my server. You can still search by typing what you're looking for.",
+          options: ["Restaurants", "Services", "Shopping"],
+          isConfirming: false
+        });
+      } else {
+        console.error('Error details:', {
+          name: err.name,
+          message: err.message,
+          stack: err.stack
+        });
 
-      // Set a more descriptive error message in the UI
-      setAiResponse(prev => ({
-        ...prev,
-        message: `Sorry, there was an error communicating with the AI: ${err.message}`,
-        options: ["Try again", "Help"],
-        isConfirming: false
-      }));
+        // Set a more descriptive error message in the UI
+        setAiResponse(prev => ({
+          ...prev,
+          message: `Sorry, there was an error communicating with the AI: ${err.message}`,
+          options: ["Try again", "Help"],
+          isConfirming: false
+        }));
+      }
     } finally {
       setIsLoading(false);
     }

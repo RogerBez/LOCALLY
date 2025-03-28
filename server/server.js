@@ -14,29 +14,22 @@ const corsOrigins = env.CORS_ORIGIN ?
 
 console.log('🔒 Configured CORS origins:', corsOrigins);
 
+// Update CORS configuration
 app.use(cors({
-  origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, etc)
-    if (!origin) {
-      console.log('✅ Allowing request with no origin');
-      return callback(null, true);
-    }
-    
-    if (corsOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
-      console.log(`✅ CORS allowed for origin: ${origin}`);
-      callback(null, true);
-    } else {
-      console.warn(`❌ Origin ${origin} not allowed by CORS`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  origin: '*', // Allow all origins temporarily to fix the issue
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Add OPTIONS
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  credentials: true,
+  maxAge: 86400 // Cache preflight requests for 24 hours
 }));
 
-// Add CORS preflight
-app.options('*', cors());
+// Add better CORS preflight handling
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.sendStatus(200);
+});
 
 app.use(express.json());
 
