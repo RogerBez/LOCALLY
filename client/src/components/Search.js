@@ -51,7 +51,7 @@ const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQu
       
       console.log('🤖 Request payload:', requestBody);
 
-      // Add mode: 'cors' explicitly and include credentials
+      // Remove the credentials: 'include' option to fix CORS issue
       const response = await fetch(`${API_URL}/api/ai-chat`, {
         method: 'POST',
         headers: { 
@@ -59,8 +59,7 @@ const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQu
           'Accept': 'application/json'
         },
         body: JSON.stringify(requestBody),
-        mode: 'cors',
-        credentials: 'include'
+        mode: 'cors'
       });
 
       console.log(`🕒 AI request took ${Date.now() - requestStartTime}ms, status: ${response.status}`);

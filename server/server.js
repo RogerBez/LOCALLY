@@ -14,13 +14,27 @@ const corsOrigins = env.CORS_ORIGIN ?
 
 console.log('🔒 Configured CORS origins:', corsOrigins);
 
-// Update CORS configuration
+// Update CORS configuration to handle origins properly
 app.use(cors({
-  origin: '*', // Allow all origins temporarily to fix the issue
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Add OPTIONS
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc)
+    if (!origin) {
+      console.log('✅ Allowing request with no origin');
+      return callback(null, true);
+    }
+    
+    if (corsOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+      console.log(`✅ CORS allowed for origin: ${origin}`);
+      callback(null, true);
+    } else {
+      console.warn(`❌ Origin ${origin} not allowed by CORS`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   credentials: true,
-  maxAge: 86400 // Cache preflight requests for 24 hours
+  maxAge: 86400
 }));
 
 // Add better CORS preflight handling
@@ -70,6 +84,20 @@ app.get('/api/cors-test', (req, res) => {
       referer: req.headers.referer
     }
   });
+});
+
+// Add this test endpoint to check if the API key works
+app.get('/api/maps-test', async (req, res) => {
+  try {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    res.json({ 
+      keyExists: !!apiKey,
+      keyFirstChars: apiKey ? `${apiKey.substring(0, 5)}...` : null,
+      googleApiUrl: `https://maps.googleapis.com/maps/api/staticmap?center=0,0&zoom=1&size=100x100&key=${apiKey}`
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 /**
@@ -177,7 +205,7 @@ const generateEnhancedMockData = (query, lat, lng) => {
   }));
 };
 
-// Update search endpoint
+// Update search endpoint with better error handling
 app.get('/api/search', async (req, res) => {
   const { query, lat, lng } = req.query;
   
@@ -196,13 +224,17 @@ app.get('/api/search', async (req, res) => {
     });
   }
   
+  // Always generate mock data (will be used if API fails)
+  const mockData = generateEnhancedMockData(query, lat, lng);
+  
   try {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     
+    // Check if API key is available
     if (!apiKey) {
-      console.error('API key missing - using enhanced mock data');
+      console.error('⚠️ API key missing - using enhanced mock data');
       return res.json({
-        businesses: generateEnhancedMockData(query, lat, lng),
+        businesses: mockData,
         meta: {
           isMockData: true,
           reason: 'API key not configured',
@@ -217,12 +249,46 @@ app.get('/api/search', async (req, res) => {
     
     const response = await axios.get(placesUrl);
     
+    // Handle Google API errors
+    if (response.data.status === 'REQUEST_DENIED') {
+      console.error(`❌ Google API request denied: ${response.data.error_message || 'No error message'}`);
+      console.log('⚠️ Using mock data instead due to API key issues');
+      
+      return res.json({
+        businesses: mockData,
+        meta: {
+          isMockData: true,
+          reason: 'Google API request denied',
+          googleError: response.data.error_message,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
     if (response.data.status !== 'OK' && response.data.status !== 'ZERO_RESULTS') {
       console.error(`[Server] Google Places API error: ${response.data.status}`);
-      return res.status(500).json({ 
-        success: false,
-        error: 'Failed to fetch places', 
-        details: response.data.status
+      
+      // Return mock data with error info
+      return res.json({
+        businesses: mockData,
+        meta: {
+          isMockData: true,
+          reason: `Google API returned status: ${response.data.status}`,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // If zero results, return mock data
+    if (response.data.status === 'ZERO_RESULTS' || response.data.results.length === 0) {
+      console.log('⚠️ No results from Google API - using mock data');
+      return res.json({
+        businesses: mockData,
+        meta: {
+          isMockData: true,
+          reason: 'No results from Google API',
+          timestamp: new Date().toISOString()
+        }
       });
     }
     
@@ -310,9 +376,10 @@ app.get('/api/search', async (req, res) => {
     res.json({ businesses: detailedBusinesses });
   } catch (error) {
     console.error('❌ Search error:', error);
-    // Fallback to mock data on error
+    
+    // Always return mock data on any error
     return res.json({
-      businesses: generateEnhancedMockData(query, lat, lng),
+      businesses: mockData,
       meta: {
         isMockData: true,
         reason: 'API error fallback',

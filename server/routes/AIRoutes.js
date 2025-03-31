@@ -1,10 +1,29 @@
 const express = require('express');
 const router = express.Router();
 
+// Special CORS handling for OPTIONS requests
+router.options('/ai-chat', (req, res) => {
+  // Set specific origin instead of wildcard
+  const origin = req.headers.origin;
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+  }
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.sendStatus(200);
+});
+
 // AI Chat endpoint
 router.post('/ai-chat', async (req, res) => {
-  // Set CORS headers directly on this specific route
-  res.header('Access-Control-Allow-Origin', '*');
+  // Set specific origin instead of wildcard
+  const origin = req.headers.origin;
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+  }
   res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   
@@ -207,14 +226,6 @@ router.post('/ai-chat', async (req, res) => {
       message: error.message
     });
   }
-});
-
-// Add an explicit OPTIONS handler for preflight requests
-router.options('/ai-chat', (req, res) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.sendStatus(200);
 });
 
 module.exports = router;
