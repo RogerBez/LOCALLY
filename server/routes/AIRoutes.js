@@ -228,4 +228,25 @@ router.post('/ai-chat', async (req, res) => {
   }
 });
 
+// Add a backup basic AI chat endpoint
+router.post('/ai-chat-backup', async (req, res) => {
+  console.log('📩 Backup AI Chat endpoint hit');
+  
+  try {
+    const { message } = req.body;
+    
+    // Simple fallback response
+    const response = {
+      message: `I received your message: "${message}". What would you like to search for?`,
+      options: ["Restaurants", "Hotels", "Services"],
+      needsConfirmation: false
+    };
+    
+    res.json(response);
+  } catch (error) {
+    console.error('❌ Backup AI error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

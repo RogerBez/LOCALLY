@@ -62,6 +62,69 @@ app.get('/api/env-check', (req, res) => {
   });
 });
 
+// Add a direct AI chat endpoint BEFORE other route configurations
+app.post('/api/ai-chat', async (req, res) => {
+  // Set CORS headers directly for this route
+  const origin = req.headers.origin;
+  if (origin) res.header('Access-Control-Allow-Origin', origin);
+  
+  console.log('📩 Direct AI Chat endpoint hit:', {
+    timestamp: new Date().toISOString(),
+    origin: req.headers.origin || 'no origin'
+  });
+  
+  try {
+    const { message, isConfirmation, context } = req.body;
+    
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({
+        error: 'Message is required and must be a string',
+        received: message
+      });
+    }
+
+    const keywords = message.toLowerCase().trim();
+    let response = {
+      message: '',
+      options: [],
+      searchQuery: null,
+      needsConfirmation: false
+    };
+
+    // Simple determination of response based on keywords
+    if (keywords.includes('hotel') || keywords.includes('accommodation')) {
+      response = {
+        message: `Would you like me to search for hotels near you?`,
+        options: ["Yes, search now", "No, let me rephrase"],
+        searchQuery: "hotels",
+        needsConfirmation: true
+      };
+    } else if (keywords.includes('restaurant') || keywords.includes('food')) {
+      response = {
+        message: "What kind of food are you interested in?",
+        options: ["Italian", "Chinese", "Fast Food", "Indian"],
+        needsConfirmation: true
+      };
+    } else {
+      response = {
+        message: `Would you like me to search for "${message}"?`,
+        options: ["Yes, search now", "No, let me rephrase"],
+        searchQuery: message,
+        needsConfirmation: true
+      };
+    }
+
+    console.log('📤 Direct AI Response:', response);
+    return res.json(response);
+  } catch (error) {
+    console.error('❌ Direct AI error:', error);
+    return res.status(500).json({
+      error: 'Server error',
+      message: error.message
+    });
+  }
+});
+
 // Mount all routes
 app.use('/api/places', placesRoutes);
 app.use('/api', apiRoutes);  // Generic API routes
