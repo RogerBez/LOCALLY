@@ -1,123 +1,67 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import BusinessCards from './components/BusinessCard';
-import AIAgent from './components/AIAgent';
-import Search from './components/Search'; // Add this import
-import { FaSearch, FaMapMarkerAlt } from 'react-icons/fa';
+import Search from './components/Search';
+import { FaChevronUp } from 'react-icons/fa';
 import logo from './Assets/logo.jpeg';
 
-// Styled Components for Landing Page
-const PageContainer = styled.div`
+// Styled Components for Unified Page
+const AppContainer = styled.div`
   min-height: 100vh;
   background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-`;
-
-const Card = styled.div`
-  background-color: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  padding: 2.5rem;
-  width: 100%;
-  max-width: 700px;
-  text-align: center;
-`;
-
-const SearchRow = styled.div`
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  
-  @media (max-width: 768px) {
-    flex-direction: column;
-  }
-`;
-
-const InputGroup = styled.div`
-  position: relative;
-  flex: 1;
-  min-width: ${props => props.$locationField ? '180px' : '250px'};
-  
-  @media (max-width: 768px) {
-    min-width: 100%;
-  }
-`;
-
-const InputIcon = styled.span`
-  position: absolute;
-  top: 50%;
-  left: 1rem;
-  transform: translateY(-50%);
-  color: #aaa;
-  pointer-events: none;
-`;
-
-const Input = styled.input`
-  width: 100%;
-  padding: 1rem 1rem 1rem 2.5rem;
-  border-radius: 10px;
-  border: 2px solid #eee;
-  font-size: 1rem;
-  transition: border-color 0.3s;
-  
-  &:focus {
-    outline: none;
-    border-color: #2196F3;
-  }
-`;
-
-const Button = styled.button`
-  background: #2196F3;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  padding: 1rem 2rem;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.3s;
-  width: 100%;
-  
-  &:hover {
-    background: #1976D2;
-  }
 `;
 
 const Header = styled.header`
-  background-color: #2196F3;
-  color: white;
+  background-color: rgba(33, 150, 243, 0.95);
   padding: 1rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   position: sticky;
   top: 0;
-  z-index: 10;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  z-index: 100;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(5px);
+  transition: all 0.3s ease;
 `;
 
-const BackButton = styled.button`
-  background: none;
-  border: none;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
+const MainContent = styled.main`
+  flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 5px;
-  
-  &:hover {
-    text-decoration: underline;
-  }
+  padding: 2rem 1rem;
+  transition: all 0.5s ease;
+`;
+
+const ChatSection = styled.section`
+  width: 100%;
+  max-width: 800px;
+  margin-bottom: ${props => props.$hasResults ? '2rem' : '0'};
+  transition: all 0.5s ease;
+`;
+
+const ResultsSection = styled.section`
+  width: 100%;
+  max-width: 1200px;
+  opacity: ${props => props.$visible ? '1' : '0'};
+  max-height: ${props => props.$visible ? '5000px' : '0'};
+  overflow: hidden;
+  transition: all 0.5s ease;
+`;
+
+const Logo = styled.img`
+  height: 50px;
+  transition: all 0.3s ease;
+  filter: ${props => props.$invert ? 'brightness(0) invert(1)' : 'none'};
 `;
 
 const LoadingContainer = styled.div`
   text-align: center;
-  padding: 50px;
+  padding: 2rem;
+  margin: 2rem 0;
 `;
 
 const Spinner = styled.div`
@@ -135,116 +79,54 @@ const Spinner = styled.div`
   }
 `;
 
-// Logo styled component - Updated size
-const Logo = styled.img`
-  height: 80px; /* Increased size */
-  margin: 0 auto; /* Center horizontally */
-  display: block; /* Make it a block element to enable margin centering */
+const BackToTopButton = styled.button`
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background-color: #2196F3;
+  color: white;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  opacity: ${props => props.$visible ? '1' : '0'};
+  transform: ${props => props.$visible ? 'scale(1)' : 'scale(0.5)'};
+  pointer-events: ${props => props.$visible ? 'all' : 'none'};
   
-  @media (max-width: 768px) {
-    height: 60px;
+  &:hover {
+    background-color: #1976D2;
+    transform: ${props => props.$visible ? 'scale(1.1)' : 'scale(0.5)'};
   }
-`;
-
-// Added for location debugging
-const LocationInfoPanel = styled.div`
-  margin-top: 1rem;
-  padding: 0.75rem;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  text-align: left;
 `;
 
 function App() {
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [showLanding, setShowLanding] = useState(true);
+  const [hasResults, setHasResults] = useState(false);
+  const [showBackToTop, setShowBackToTop] = useState(false);
   const [searchParams, setSearchParams] = useState({
     lat: null,
     lng: null,
     query: '',
-    locationName: 'Fetching location...' // Add this for display
+    locationName: 'Fetching location...'
   });
   
-  // Add this to track location status
   const [locationStatus, setLocationStatus] = useState({
     isLoading: true,
     error: null,
-    source: 'Detecting...' // 'GPS', 'IP', 'Default'
+    source: 'Detecting...'
   });
 
-  // Add a ref at the component level
   const locationRequestedRef = useRef(false);
-
-  const [showFollowUp, setShowFollowUp] = useState(false);
-
-  // Function to reverse geocode coordinates to human-readable address
-  const reverseGeocode = async (lat, lng) => {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10`
-      );
-      
-      if (!response.ok) {
-        throw new Error('Geocoding service unavailable');
-      }
-      
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      
-      console.log('🗺️ Reverse geocoding result:', data);
-      
-      // Format the location nicely
-      let locationName = 'Unknown Location';
-      
-      if (data.address) {
-        const address = data.address;
-        
-        const cityComponents = [
-          address.city,
-          address.town,
-          address.village,
-          address.hamlet,
-          address.suburb
-        ].filter(Boolean);
-        
-        const regionComponents = [
-          address.state,
-          address.county,
-          address.region
-        ].filter(Boolean);
-        
-        const city = cityComponents[0] || 'Unknown City';
-        const region = regionComponents[0] || '';
-        const country = address.country || '';
-        
-        if (city && country) {
-          locationName = region 
-            ? `${city}, ${region}, ${country}`
-            : `${city}, ${country}`;
-        } else if (city) {
-          locationName = city;
-        } else if (country) {
-          locationName = country;
-        }
-      }
-      
-      return {
-        displayName: locationName,
-        fullData: data
-      };
-    } catch (error) {
-      console.error('❌ Reverse geocoding error:', error);
-      return {
-        displayName: 'Location unavailable',
-        error: error.message
-      };
-    }
-  };
+  const chatSectionRef = useRef(null);
+  const resultsRef = useRef(null);
 
   // Get user's geolocation on mount
   useEffect(() => {
@@ -334,7 +216,88 @@ function App() {
     }
   }, []);
 
-  // Function to fetch businesses with better error handling
+  // Add scroll listener for back-to-top button
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 300) {
+        setShowBackToTop(true);
+      } else {
+        setShowBackToTop(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Function to reverse geocode coordinates to human-readable address
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Geocoding service unavailable');
+      }
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      console.log('🗺️ Reverse geocoding result:', data);
+      
+      // Format the location nicely
+      let locationName = 'Unknown Location';
+      
+      if (data.address) {
+        const address = data.address;
+        
+        const cityComponents = [
+          address.city,
+          address.town,
+          address.village,
+          address.hamlet,
+          address.suburb
+        ].filter(Boolean);
+        
+        const regionComponents = [
+          address.state,
+          address.county,
+          address.region
+        ].filter(Boolean);
+        
+        const city = cityComponents[0] || 'Unknown City';
+        const region = regionComponents[0] || '';
+        const country = address.country || '';
+        
+        if (city && country) {
+          locationName = region 
+            ? `${city}, ${region}, ${country}`
+            : `${city}, ${country}`;
+        } else if (city) {
+          locationName = city;
+        } else if (country) {
+          locationName = country;
+        }
+      }
+      
+      return {
+        displayName: locationName,
+        fullData: data
+      };
+    } catch (error) {
+      console.error('❌ Reverse geocoding error:', error);
+      return {
+        displayName: 'Location unavailable',
+        error: error.message
+      };
+    }
+  };
+
+  // Function to fetch businesses
   const fetchBusinesses = async (params) => {
     if (!params.query) {
       setError('Please enter a search query');
@@ -350,9 +313,8 @@ function App() {
     setError(null);
     
     const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-    const endpoint = `${API_URL}/api/search`; // Use the search endpoint
+    const endpoint = `${API_URL}/api/search`;
     
-    // Build query string
     const queryString = new URLSearchParams({
       query: params.query,
       lat: params.lat,
@@ -367,7 +329,7 @@ function App() {
     console.log('Search params:', params);
     
     try {
-      // First check if the server is even running
+      // First check if the server is running
       try {
         const healthCheck = await fetch(`${API_URL}/health`);
         if (!healthCheck.ok) {
@@ -418,90 +380,47 @@ function App() {
       const data = await response.json();
       console.log('📊 Received data:', data);
       
-      console.log('📊 Received businesses:', {
-        count: data.businesses?.length || 0,
-        firstBusiness: data.businesses?.[0] ? {
-          name: data.businesses[0].name,
-          hasPhone: Boolean(data.businesses[0].formatted_phone_number),
-          phone: data.businesses[0].formatted_phone_number
-        } : null
-      });
-      
       // Update state with businesses - handle different response formats
       if (data.businesses && Array.isArray(data.businesses)) {
         setBusinesses(data.businesses);
-        if (data.businesses.length > 0) {
-          setShowLanding(false);
-          setShowFollowUp(true); // Show follow-up after results
-        }
+        setHasResults(data.businesses.length > 0);
       } else if (Array.isArray(data)) {
-        // Handle case where response is an array directly (for compatibility with old endpoint)
         setBusinesses(data);
-        if (data.length > 0) {
-          setShowLanding(false);
-          setShowFollowUp(true); // Show follow-up after results
-        }
+        setHasResults(data.length > 0);
       } else if (data.success && data.businesses) {
-        // For the success:true format
         setBusinesses(data.businesses);
-        if (data.businesses.length > 0) {
-          setShowLanding(false);
-          setShowFollowUp(true); // Show follow-up after results
-        }
+        setHasResults(data.businesses.length > 0);
       } else {
         console.warn('⚠️ Data format unexpected:', data);
         setBusinesses([]);
+        setHasResults(false);
+      }
+      
+      // Scroll to results if we have them
+      if (hasResults && resultsRef.current) {
+        setTimeout(() => {
+          resultsRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start'
+          });
+        }, 500);
       }
     } catch (error) {
       console.error('❌ Fetch error:', error);
       setError(`Error fetching data: ${error.message}`);
       setBusinesses([]);
+      setHasResults(false);
     } finally {
       console.groupEnd();
       setLoading(false);
     }
   };
   
-  // Add this for Step 4: Filter businesses based on AI recommendations
-  const handleFilterBusinesses = (filterAction) => {
-    if (!filterAction || !businesses.length) return;
-    
-    let filteredBusinesses = [...businesses];
-    
-    if (filterAction.type === 'sort') {
-      filteredBusinesses.sort((a, b) => {
-        if (filterAction.order === 'asc') {
-          return a[filterAction.field] - b[filterAction.field];
-        } else {
-          return b[filterAction.field] - a[filterAction.field];
-        }
-      });
-    } 
-    else if (filterAction.type === 'filter') {
-      filteredBusinesses = filteredBusinesses.filter(business => {
-        const value = business[filterAction.field];
-        
-        switch(filterAction.operator) {
-          case 'eq': return value === filterAction.value;
-          case 'gt': return value > filterAction.value;
-          case 'gte': return value >= filterAction.value;
-          case 'lt': return value < filterAction.value;
-          case 'lte': return value <= filterAction.value;
-          default: return true;
-        }
-      });
-    }
-    
-    setBusinesses(filteredBusinesses);
-  };
-  
-  // Handle landing page search
-  const handleLandingSearch = (query, location) => {
-    // This function will be called from the landing page
+  // Handle search from the AI Chat interface
+  const handleSearch = (query) => {
     setSearchParams(prevParams => ({
       ...prevParams,
-      query,
-      locationName: location // Store the location name for display
+      query
     }));
     
     fetchBusinesses({
@@ -510,38 +429,35 @@ function App() {
     });
   };
   
-  // Search form handler for results page
-  const handleSearch = (event) => {
-    event.preventDefault();
-    fetchBusinesses(searchParams);
+  // Handle back to top button click
+  const handleBackToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
   };
-  
-  // Update search parameters
-  const handleInputChange = (event) => {
-    const { name, value } = event.target;
-    setSearchParams(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-  
-  // Reset to landing page
-  const handleReset = () => {
-    setShowLanding(true);
-    setBusinesses([]);
-  };
-  
-  if (showLanding) {
-    return (
-      <PageContainer>
-        <Card>
-          <Logo src={logo} alt="Local Service Agent Logo" />
-          
+
+  return (
+    <AppContainer>
+      <Header>
+        <Logo 
+          src={logo} 
+          alt="Local Service Agent Logo" 
+          $invert={true}
+        />
+      </Header>
+
+      <MainContent>
+        {/* AI Chat Section - Always visible */}
+        <ChatSection ref={chatSectionRef} $hasResults={hasResults}>
           <Search 
-            onSearch={(query) => handleLandingSearch(query, searchParams.locationName)}
+            onSearch={handleSearch}
+            initialBusinesses={businesses}
+            isFollowUp={hasResults}
+            searchQuery={searchParams.query}
             locationName={searchParams.locationName}
           />
-
+          
           {error && (
             <div style={{ 
               backgroundColor: '#FFEBEE', 
@@ -563,144 +479,61 @@ function App() {
               color: '#1976D2', 
               padding: '0.5rem', 
               borderRadius: '8px',
+              textAlign: 'center'
             }}>
               <p>Acquiring your location...</p>
               <Spinner style={{ width: '25px', height: '25px', margin: '0.5rem auto' }} />
             </div>
           )}
-          
-          {/* Add location debug information */}
-          {!locationStatus.isLoading && (
-            <LocationInfoPanel
-              style={{ 
-                backgroundColor: locationStatus.error ? '#FFF8E1' : '#E8F5E9', 
-                color: locationStatus.error ? '#F57C00' : '#2E7D32'
-              }}
-            >
-              <p><strong>Location Info:</strong></p>
-              <p>Location: {searchParams.locationName}</p>
-              <p>Source: {locationStatus.source}</p>
-              <p>Coordinates: {searchParams.lat?.toFixed(6)}, {searchParams.lng?.toFixed(6)}</p>
-              {locationStatus.accuracy && <p>Accuracy: ~{Math.round(locationStatus.accuracy)}m</p>}
-              {locationStatus.error && <p>Error: {locationStatus.error}</p>}
-            </LocationInfoPanel>
-          )}
-        </Card>
-      </PageContainer>
-    );
-  }
-  
-  return (
-    <div>
-      <Header>
-        <BackButton onClick={handleReset}>
-          ← New Search
-        </BackButton>
-        <Logo 
-          src={logo} 
-          alt="Local Service Agent Logo" 
-          style={{ 
-            height: '40px', 
-            margin: '0 auto',
-            position: 'absolute',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            filter: 'brightness(0) invert(1)' 
-          }} 
-        />
-        <div style={{ width: '100px' }}></div>
-      </Header>
-      
-      <div style={{ backgroundColor: '#f4f6f9', padding: '1rem' }}>
-        <Search 
-          onSearch={(query) => fetchBusinesses({ ...searchParams, query })}
-          initialBusinesses={businesses}
-        />
-      </div>
+        </ChatSection>
 
-      {/* Loading indicator */}
-      {loading && (
-        <LoadingContainer>
-          <Spinner />
-          <p style={{ marginTop: '1rem', color: '#666' }}>Searching for businesses...</p>
-        </LoadingContainer>
-      )}
-      
-      {/* Results */}
-      {!loading && businesses.length > 0 && (
-        <>
-          <BusinessCards 
-            businesses={businesses} 
-            userLocation={{
-              lat: searchParams.lat,
-              lng: searchParams.lng,
-              locationName: searchParams.locationName
-            }}
-          />
-          
-          {/* Add follow-up AI conversation */}
-          {showFollowUp && (
-            <div className="follow-up-container" style={{
-              maxWidth: '800px',
-              margin: '2rem auto',
-              padding: '1.5rem',
-              backgroundColor: '#f0f7ff',
-              borderRadius: '12px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        {/* Loading indicator */}
+        {loading && (
+          <LoadingContainer>
+            <Spinner />
+            <p style={{ marginTop: '1rem', color: '#fff' }}>Searching for businesses...</p>
+          </LoadingContainer>
+        )}
+        
+        {/* Results Section - Conditionally visible */}
+        <ResultsSection ref={resultsRef} $visible={hasResults}>
+          {businesses.length > 0 && (
+            <BusinessCards 
+              businesses={businesses} 
+              userLocation={{
+                lat: searchParams.lat,
+                lng: searchParams.lng,
+                locationName: searchParams.locationName
+              }}
+            />
+          )}
+
+          {/* No results state */}
+          {!loading && !error && hasResults && businesses.length === 0 && (
+            <div style={{ 
+              maxWidth: '600px', 
+              margin: '2rem auto', 
+              textAlign: 'center', 
+              padding: '2rem',
+              backgroundColor: '#FAFAFA', 
+              borderRadius: '12px' 
             }}>
-              <h3 style={{ marginTop: 0, color: '#2563eb' }}>
-                Need help with these results?
-              </h3>
-              <Search 
-                onSearch={(query) => fetchBusinesses({ ...searchParams, query })}
-                initialBusinesses={businesses}
-                isFollowUp={true}
-                searchQuery={searchParams.query}
-              />
+              <p style={{ fontSize: '1.25rem', color: '#666', marginBottom: '1rem' }}>No results found</p>
+              <p style={{ color: '#888' }}>Try a different search term</p>
             </div>
           )}
-        </>
-      )}
+        </ResultsSection>
+      </MainContent>
 
-      {/* No results state */}
-      {!loading && !error && businesses.length === 0 && (
-        <div style={{ 
-          maxWidth: '600px', 
-          margin: '2rem auto', 
-          textAlign: 'center', 
-          padding: '2rem',
-          backgroundColor: '#FAFAFA', 
-          borderRadius: '12px' 
-        }}>
-          <p style={{ fontSize: '1.25rem', color: '#666', marginBottom: '1rem' }}>No results found</p>
-          <p style={{ color: '#888' }}>Try a different search term</p>
-        </div>
-      )}
-      
-      {/* Debug info div */}
-      <div style={{ 
-  position: 'fixed', 
-  bottom: '0', 
-  left: '0', 
-  backgroundColor: 'rgba(33, 33, 33, 0.9)', 
-  color: 'white', 
-  padding: '0.5rem', 
-  fontSize: '0.75rem',
-  borderTopRightRadius: '8px',
-  maxWidth: '100%',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap'
-}}></div>
-  API: {process.env.REACT_APP_API_URL || 'http://localhost:5000'} | 
-  ENV: {process.env.NODE_ENV} | 
-  Last Updated: 2025-03-26 05:56:15 | 
-  User: RogerBez | 
-  Location: {searchParams.locationName} ({locationStatus.source}) | 
-  Navigation: {locationStatus.source === 'GPS' ? 'Using your current location' : 'Using default location'} |
-  Lat: {searchParams.lat?.toFixed(6)} Lng: {searchParams.lng?.toFixed(6)}
-  {locationStatus.accuracy && ` | Accuracy: ~${Math.round(locationStatus.accuracy)}m`}
-</div>
+      {/* Back to top button */}
+      <BackToTopButton 
+        onClick={handleBackToTop} 
+        $visible={showBackToTop}
+        aria-label="Back to top"
+      >
+        <FaChevronUp />
+      </BackToTopButton>
+    </AppContainer>
   );
 }
 

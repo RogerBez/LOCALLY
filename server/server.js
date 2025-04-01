@@ -6,6 +6,7 @@ const axios = require('axios');
 const aiRoutes = require('./routes/aiRoutes');
 const apiRoutes = require('./routes/api');
 const path = require('path');
+const geminiService = require('./services/geminiService'); // Get geminiService
 const app = express();
 // Define allowed origins, including both Render and Vercel domains
 const corsOrigins = env.CORS_ORIGIN ? 
@@ -62,7 +63,7 @@ app.get('/api/env-check', (req, res) => {
   });
 });
 
-// Add a direct AI chat endpoint BEFORE other route configurations
+// Update direct AI chat endpoint to use Gemini
 app.post('/api/ai-chat', async (req, res) => {
   // Set CORS headers directly for this route
   const origin = req.headers.origin;
@@ -83,36 +84,11 @@ app.post('/api/ai-chat', async (req, res) => {
       });
     }
 
-    const keywords = message.toLowerCase().trim();
-    let response = {
-      message: '',
-      options: [],
-      searchQuery: null,
-      needsConfirmation: false
-    };
-
-    // Simple determination of response based on keywords
-    if (keywords.includes('hotel') || keywords.includes('accommodation')) {
-      response = {
-        message: `Would you like me to search for hotels near you?`,
-        options: ["Yes, search now", "No, let me rephrase"],
-        searchQuery: "hotels",
-        needsConfirmation: true
-      };
-    } else if (keywords.includes('restaurant') || keywords.includes('food')) {
-      response = {
-        message: "What kind of food are you interested in?",
-        options: ["Italian", "Chinese", "Fast Food", "Indian"],
-        needsConfirmation: true
-      };
-    } else {
-      response = {
-        message: `Would you like me to search for "${message}"?`,
-        options: ["Yes, search now", "No, let me rephrase"],
-        searchQuery: message,
-        needsConfirmation: true
-      };
-    }
+    // Process the message using Gemini AI service
+    const response = await geminiService.processChat(message, {
+      ...context,
+      isConfirmation
+    });
 
     console.log('📤 Direct AI Response:', response);
     return res.json(response);
@@ -180,12 +156,33 @@ app.get('/api/map-image', async (req, res) => {
     // Create the Google Maps Static API URL
     const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=${width}x${height}&scale=${scale}&maptype=roadmap&markers=color:red%7C${lat},${lng}&key=${apiKey}`;
     
-    // Fetch the image using axios
-    const response = await axios.get(mapUrl, { responseType: 'arraybuffer' });
-    
-    // Set the appropriate headers
-    res.set('Content-Type', response.headers['content-type']);
-    res.send(Buffer.from(response.data, 'binary'));
+    const maxRetries = 3;
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+      try {
+        const response = await axios.get(mapUrl, { responseType: 'arraybuffer' });
+        console.log('Map image fetched successfully');
+        res.set('Content-Type', response.headers['content-type']);
+        res.send(Buffer.from(response.data, 'binary'));
+        return;
+      } catch (error) {
+        attempt++;
+        if (error.code === 'ENOTFOUND') {
+          console.error(`DNS lookup failed for ${error.hostname}. Attempt ${attempt} of ${maxRetries}`);
+        } else {
+          console.error(`Error fetching map image: ${error.message}`);
+        }
+
+        if (attempt >= maxRetries) {
+          console.error('Max retries reached. Unable to fetch map image.');
+          throw error;
+        }
+
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
   } catch (error) {
     console.error('Error fetching map image:', error);
     res.status(500).json({

@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { FaSearch, FaRobot } from 'react-icons/fa';
+import React, { useState, useEffect, useRef } from 'react';
+import { FaSearch, FaRobot, FaPaperPlane, FaSpinner } from 'react-icons/fa';
 import './Search.css';
 
 const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQuery = null, onSort }) => {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [conversation, setConversation] = useState([]);
   const [aiResponse, setAiResponse] = useState({
     message: isFollowUp 
       ? `I found some results for "${searchQuery}". Would you like to refine your search or have any questions about the results?`
@@ -16,42 +17,96 @@ const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQu
     isConfirming: false,
     previousQuery: searchQuery || null
   });
+  
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
-  // Update the initial message when the component receives new props
+  // Initialize conversation with AI greeting
   useEffect(() => {
-    if (isFollowUp && searchQuery) {
-      setAiResponse(prev => ({
-        ...prev,
-        message: `I found ${initialBusinesses.length} results for "${searchQuery}". Would you like to refine your search or ask about these places?`,
-        options: ["Show higher rated places", "Find places closer to me", "Different type of business"],
-        searchQuery: searchQuery,
-        previousQuery: searchQuery
-      }));
+    setConversation([{
+      type: 'ai',
+      message: aiResponse.message,
+      options: aiResponse.options
+    }]);
+  }, []);
+
+  // Scroll to bottom of messages when conversation updates
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [conversation]);
+
+  // Update the initial message when receiving new props
+  useEffect(() => {
+    if (isFollowUp && searchQuery && initialBusinesses.length > 0) {
+      const initialMessage = `I found ${initialBusinesses.length} results for "${searchQuery}". Would you like to refine your search or ask about these places?`;
+      
+      // Only update if this is a new message
+      if (conversation.length <= 1 || conversation[0].message !== initialMessage) {
+        setConversation([{
+          type: 'ai',
+          message: initialMessage,
+          options: ["Show higher rated places", "Find places closer to me", "Different type of business"]
+        }]);
+        
+        setAiResponse({
+          message: initialMessage,
+          options: ["Show higher rated places", "Find places closer to me", "Different type of business"],
+          searchQuery: searchQuery,
+          previousQuery: searchQuery
+        });
+      }
     }
   }, [isFollowUp, searchQuery, initialBusinesses.length]);
 
   const handleAIChat = async (userMessage, isConfirmation = false) => {
     setIsLoading(true);
+    
+    // Add user message to conversation
+    setConversation(prev => [...prev, {
+      type: 'user',
+      message: userMessage
+    }]);
+    
     try {
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       console.log('🤖 Sending AI request to:', `${API_URL}/api/ai-chat`);
 
-      // Add timestamp for debugging
-      const requestStartTime = Date.now();
+      // Add "thinking" indicator with personality
+      const thinkingMessages = [
+        "Hmm, let me think about that...",
+        "Looking into that for you...",
+        "Checking local options...",
+        "Searching my knowledge..."
+      ];
+      const randomThinking = thinkingMessages[Math.floor(Math.random() * thinkingMessages.length)];
+      
+      setConversation(prev => [...prev, {
+        type: 'thinking',
+        message: randomThinking
+      }]);
 
+      // Include chat history for better context
+      const chatHistory = conversation
+        .filter(msg => msg.type === 'user' || msg.type === 'ai')
+        .slice(-6) // Last 6 messages for context
+        .map(msg => ({
+          role: msg.type === 'user' ? 'user' : 'assistant',
+          content: msg.message
+        }));
+      
       // Include the previous query information for context
       const requestBody = {
         message: userMessage.trim(),
         isConfirmation,
         context: {
           businesses: initialBusinesses,
-          previousQuery: aiResponse.searchQuery || aiResponse.previousQuery
+          previousQuery: aiResponse.searchQuery || aiResponse.previousQuery,
+          chatHistory: chatHistory
         }
       };
       
       console.log('🤖 Request payload:', requestBody);
 
-      // Remove the credentials: 'include' option to fix CORS issue
       const response = await fetch(`${API_URL}/api/ai-chat`, {
         method: 'POST',
         headers: { 
@@ -62,31 +117,31 @@ const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQu
         mode: 'cors'
       });
 
-      console.log(`🕒 AI request took ${Date.now() - requestStartTime}ms, status: ${response.status}`);
-      console.log('🔍 Response headers:', Object.fromEntries(response.headers.entries()));
+      // Remove thinking message
+      setConversation(prev => prev.filter(msg => msg.type !== 'thinking'));
+
+      // Process response
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
 
       // Check if the response is JSON
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
-        console.error('❌ Non-JSON response received:', contentType);
-        
-        // Try to get the raw response text for debugging
-        const rawText = await response.text();
-        console.error('❌ Response body (text):', rawText);
-        
         throw new Error(`Server returned non-JSON response: ${contentType || 'unknown'}`);
       }
 
       const data = await response.json();
-      
-      if (!response.ok) {
-        console.error('❌ Error response:', data);
-        throw new Error(data.error || `Server error: ${response.status}`);
-      }
-
       console.log('🤖 AI Response:', data);
 
-      // Preserve previous query information
+      // Add AI response to conversation
+      setConversation(prev => [...prev, {
+        type: 'ai',
+        message: data.message,
+        options: data.options || []
+      }]);
+      
+      // Update AI response state
       setAiResponse(prev => ({
         ...prev,
         ...data,
@@ -94,55 +149,36 @@ const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQu
         previousQuery: data.previousQuery || prev.previousQuery || data.searchQuery
       }));
 
-      // Important change: Check for confirmedSearch OR perform direct search if isConfirmation is true
+      // Handle search actions
       if (data.confirmedSearch) {
         console.log('🔍 Performing search with confirmedSearch:', data.confirmedSearch);
         await onSearch(data.confirmedSearch);
       } else if (isConfirmation && data.searchQuery) {
-        // Direct search if this is a confirmation and there's a search query
         console.log('🔍 Performing direct search with:', data.searchQuery);
         await onSearch(data.searchQuery);
       }
 
-      if (data.action === 'sort') {
-        // Handle sorting action
-        if (data.sortBy) {
-          onSort(data.sortBy);
-        }
-      } else if (data.action === 'fetch_more') {
-        // Handle pagination/fetch more
-        if (data.confirmedSearch) {
-          await onSearch(data.confirmedSearch, { loadMore: true });
-        }
+      // Handle sorting if needed
+      if (data.action === 'sort' && data.sortBy && onSort) {
+        onSort(data.sortBy);
       }
     } catch (err) {
       console.error('❌ AI Chat error:', err);
-      if (err.message.includes('fetch') || err.message.includes('network')) {
-        console.error('This appears to be a CORS or network error. Check server CORS configuration.');
-        
-        // Fall back to a simulated response
-        setAiResponse({
-          message: "I'm sorry, I'm having trouble connecting to my server. You can still search by typing what you're looking for.",
-          options: ["Restaurants", "Services", "Shopping"],
-          isConfirming: false
-        });
-      } else {
-        console.error('Error details:', {
-          name: err.name,
-          message: err.message,
-          stack: err.stack
-        });
-
-        // Set a more descriptive error message in the UI
-        setAiResponse(prev => ({
-          ...prev,
-          message: `Sorry, there was an error communicating with the AI: ${err.message}`,
-          options: ["Try again", "Help"],
-          isConfirming: false
-        }));
-      }
+      
+      // Remove thinking message
+      setConversation(prev => prev.filter(msg => msg.type !== 'thinking'));
+      
+      // Add error message to conversation
+      setConversation(prev => [...prev, {
+        type: 'error',
+        message: `Sorry, I encountered an error: ${err.message}`,
+        options: ["Try again"]
+      }]);
+      
     } finally {
       setIsLoading(false);
+      // Focus back on input after response
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   };
 
@@ -156,62 +192,91 @@ const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQu
   };
 
   const handleOptionClick = (option) => {
+    // First add this as if the user typed it
+    setConversation(prev => [...prev, {
+      type: 'user',
+      message: option
+    }]);
+    
+    // Reset query and process the option
     setQuery('');
-    // Check if this is a "Yes, search now" option
+    
+    // Check if this is a direct search option
     if (option.toLowerCase().includes('yes') || option.toLowerCase().includes('search now')) {
-      // Directly trigger search with the stored query
       const searchQuery = aiResponse.searchQuery || aiResponse.previousQuery;
       if (searchQuery) {
         console.log('🔍 Direct search from option click:', searchQuery);
+        
+        // Add message that we're searching
+        setConversation(prev => [...prev, {
+          type: 'ai',
+          message: `Searching for "${searchQuery}" in your area...`,
+          options: []
+        }]);
+        
         onSearch(searchQuery);
         return;
       }
     }
+    
     handleAIChat(option, true);
   };
 
   return (
-    <div className="unified-search-container">
-      <div className={`ai-conversation ${isFollowUp ? 'ai-conversation-follow-up' : ''}`}>
-        <div className="ai-message">
-          <FaRobot className="ai-icon" />
-          <p>{aiResponse.message}</p>
-        </div>
+    <div className="chat-container">
+      <div className="chat-messages">
+        {conversation.map((msg, index) => (
+          <div 
+            key={index} 
+            className={`chat-message ${msg.type}-message`}
+          >
+            {msg.type === 'ai' && <FaRobot className="chat-icon ai-icon" />}
+            {msg.type === 'thinking' ? (
+              <div className="thinking-indicator">
+                <FaSpinner className="spinning-icon" />
+                <span>{msg.message}</span>
+              </div>
+            ) : (
+              <div className="message-content">{msg.message}</div>
+            )}
+            
+            {msg.options && msg.options.length > 0 && (
+              <div className="chat-options">
+                {msg.options.map((option, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => handleOptionClick(option)}
+                    className="chat-option-button"
+                    disabled={isLoading}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={handleSubmit} className="unified-search-form">
-        <div className="search-input-wrapper">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={isFollowUp ? "Ask me about these results or refine your search..." : "Type your response here..."}
-            className="unified-search-input"
-            disabled={isLoading}
-          />
-          <button 
-            type="submit"
-            className="unified-search-button"
-            disabled={isLoading || !query.trim()}
-          >
-            {isLoading ? 'Thinking...' : <FaSearch />}
-          </button>
-        </div>
-        
-        {aiResponse.options && aiResponse.options.length > 0 && (
-          <div className="suggestion-chips">
-            {aiResponse.options.map((option, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => handleOptionClick(option)}
-                className="suggestion-chip"
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        )}
+      <form onSubmit={handleSubmit} className="chat-input-form">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={isLoading ? "Thinking..." : "Type your message here..."}
+          className="chat-input"
+          disabled={isLoading}
+          ref={inputRef}
+        />
+        <button 
+          type="submit"
+          className="chat-submit-button"
+          disabled={isLoading || !query.trim()}
+        >
+          {isLoading ? <FaSpinner className="spinning-icon" /> : <FaPaperPlane />}
+        </button>
       </form>
     </div>
   );
