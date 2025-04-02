@@ -3,7 +3,7 @@ const cors = require('cors');
 const env = require('./config/environment');
 const placesRoutes = require('./routes/placesRoutes');
 const axios = require('axios');
-const aiRoutes = require('./routes/aiRoutes');
+const aiRoutes = require('./routes/aiRoutes'); // Update this line to match the exact filename case
 const apiRoutes = require('./routes/api');
 const path = require('path');
 const geminiService = require('./services/geminiService'); // Get geminiService
@@ -466,6 +466,28 @@ app.get('/api/test', (req, res) => {
     message: 'API is working',
     timestamp: new Date().toISOString()
   });
+});
+
+// Serve static assets in production
+if (process.env.NODE_ENV === 'production') {
+  // Set static folderfs');
+  app.use(express.static(path.join(__dirname, '../client/build')));
+  
+  // Any route that doesn't match API routes should serve the React app
+  app.get('*', (req, res) => {n(__dirname, 'routes');
+    res.sendFile(path.resolve(__dirname, '../client/build', 'index.html'));
+  });
+    res.json({
+  console.log('Running in production mode - serving static files from client/build');
+} else {utesPath: routesDir,
+  console.log('Running in development mode');
+}   });
+  } catch (error) {
+app.listen(env.PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${env.PORT}`);
+});   stack: error.stack
+    });
+module.exports = app;
 });
 
 // Serve static assets in production
