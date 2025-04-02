@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const geminiService = require('../services/geminiService');
+const aiRoutes = require('./routes/aiRoutes');
 
 // Special CORS handling for OPTIONS requests
 router.options('/ai-chat', (req, res) => {
