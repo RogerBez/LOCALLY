@@ -468,26 +468,26 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// Serve static assets in production
-if (process.env.NODE_ENV === 'production') {
-  // Set static folderfs');
-  app.use(express.static(path.join(__dirname, '../client/build')));
+// Add this diagnostic endpoint
+app.get('/api/file-check', (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
   
-  // Any route that doesn't match API routes should serve the React app
-  app.get('*', (req, res) => {n(__dirname, 'routes');
-    res.sendFile(path.resolve(__dirname, '../client/build', 'index.html'));
-  });
+  try {
+    const routesDir = path.join(__dirname, 'routes');
+    const files = fs.readdirSync(routesDir);
+    
     res.json({
-  console.log('Running in production mode - serving static files from client/build');
-} else {utesPath: routesDir,
-  console.log('Running in development mode');
-}   });
-  } catch (error) {
-app.listen(env.PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${env.PORT}`);
-});   stack: error.stack
+      files,
+      routesPath: routesDir,
+      timestamp: new Date().toISOString()
     });
-module.exports = app;
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+      stack: error.stack
+    });
+  }
 });
 
 // Serve static assets in production
