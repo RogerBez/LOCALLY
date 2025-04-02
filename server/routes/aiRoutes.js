@@ -2,9 +2,18 @@ const express = require('express');
 const router = express.Router();
 const geminiService = require('../services/geminiService');
 
+// Log when this module is loaded
+console.log('🔄 Loading aiRoutes.js module...');
+
+// Debug logging middleware for all AI routes
+router.use((req, res, next) => {
+  console.log(`🤖 AI Route accessed: ${req.method} ${req.path}`);
+  next();
+});
+
 // Special CORS handling for OPTIONS requests
 router.options('/ai-chat', (req, res) => {
-  // Set specific origin instead of wildcard
+  console.log('🔄 OPTIONS request for /ai-chat');
   const origin = req.headers.origin;
   if (origin) {
     res.header('Access-Control-Allow-Origin', origin);
@@ -18,7 +27,7 @@ router.options('/ai-chat', (req, res) => {
 
 // AI Chat endpoint
 router.post('/ai-chat', async (req, res) => {
-  // Set specific origin instead of wildcard
+  console.log('📩 POST request for /ai-chat');
   const origin = req.headers.origin;
   if (origin) {
     res.header('Access-Control-Allow-Origin', origin);
@@ -39,6 +48,7 @@ router.post('/ai-chat', async (req, res) => {
     const { message, isConfirmation, context } = req.body;
     
     if (!message || typeof message !== 'string') {
+      console.error('❌ Invalid message received:', message);
       return res.status(400).json({
         error: 'Message is required and must be a string',
         received: message
@@ -68,9 +78,11 @@ router.post('/ai-chat', async (req, res) => {
 
 // Add a simple test endpoint that doesn't use geminiService
 router.get('/ai-test', (req, res) => {
+  console.log('📩 GET request for /ai-test');
   res.json({
     message: 'AI routes are working',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    route: '/api/ai-test'
   });
 });
 
@@ -92,6 +104,24 @@ router.post('/ai-chat-backup', async (req, res) => {
   } catch (error) {
     console.error('❌ Backup AI error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Add direct debug endpoint
+router.get('/debug', (req, res) => {
+  console.log('📩 GET request for /debug');
+  res.json({
+    message: 'AI routes debug endpoint',
+    routes: router.stack.map(r => r.route ? `${Object.keys(r.route.methods)[0].toUpperCase()} ${r.route.path}` : 'middleware'),
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Explicitly confirm this module loaded
+console.log('✅ aiRoutes.js loaded successfully. Routes registered:');
+router.stack.forEach(r => {
+  if (r.route) {
+    console.log(`   - ${Object.keys(r.route.methods)[0].toUpperCase()} ${r.route.path}`);
   }
 });
 

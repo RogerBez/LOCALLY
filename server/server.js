@@ -54,6 +54,27 @@ app.use((req, res, next) => {
   next();
 });
 
+// Add enhanced debugging and route logging
+app.use((req, res, next) => {
+  console.log(`📌 [${new Date().toISOString()}] ${req.method} ${req.url}`);
+  console.log(`   Headers: ${JSON.stringify(req.headers)}`);
+  console.log(`   Query: ${JSON.stringify(req.query)}`);
+  console.log(`   Body: ${JSON.stringify(req.body)}`);
+  next();
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('❌ Global Error:', err);
+  console.error('Stack:', err.stack);
+  res.status(500).json({
+    error: 'Server error',
+    message: err.message,
+    path: req.path,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Add environment check endpoint
 app.get('/api/env-check', (req, res) => {
   res.json({
@@ -67,6 +88,40 @@ app.get('/api/env-check', (req, res) => {
 app.use('/api/places', placesRoutes);
 app.use('/api', apiRoutes);  // Generic API routes
 app.use('/api', aiRoutes);   // AI-specific routes - this will handle /api/ai-chat
+
+// Fix for route mounting - making sure the routes are mounted correctly
+console.log('🛣️ Mounting routes...');
+try {
+  // List all route files
+  const fs = require('fs');
+  const routeFiles = fs.readdirSync(path.join(__dirname, 'routes'));
+  console.log('📁 Route files found:', routeFiles);
+  
+  // Mount all routes with verification
+  app.use('/api/places', placesRoutes);
+  console.log('✅ Mounted: /api/places');
+  
+  app.use('/api', apiRoutes);
+  console.log('✅ Mounted: /api (apiRoutes)');
+  
+  app.use('/api', aiRoutes);
+  console.log('✅ Mounted: /api (aiRoutes)');
+  
+  // Verify aiRoutes has routes
+  if (aiRoutes.stack) {
+    console.log('📑 AI routes registered:', aiRoutes.stack.length);
+    aiRoutes.stack.forEach(route => {
+      if (route.route) {
+        console.log(`   - ${Object.keys(route.route.methods)[0].toUpperCase()} ${route.route.path}`);
+      }
+    });
+  } else {
+    console.error('⚠️ No routes found in aiRoutes');
+  }
+} catch (error) {
+  console.error('❌ Error mounting routes:', error);
+  console.error(error.stack);
+}
 
 // Add this test endpoint to check CORS configuration
 app.get('/api/cors-test', (req, res) => {
@@ -488,6 +543,40 @@ app.get('/api/file-check', (req, res) => {
       stack: error.stack
     });
   }
+});
+
+// Log all registered routes for debugging
+app.get('/api/routes', (req, res) => {
+  const routes = [];
+  
+  // Get all registered routes
+  app._router.stack.forEach(middleware => {
+    if (middleware.route) {
+      // Routes registered directly on the app
+      routes.push({
+        path: middleware.route.path,
+        method: Object.keys(middleware.route.methods)[0].toUpperCase()
+      });
+    } else if (middleware.name === 'router') {
+      // Routes added via router
+      middleware.handle.stack.forEach(handler => {
+        if (handler.route) {
+          routes.push({
+            path: handler.route.path,
+            method: Object.keys(handler.route.methods)[0].toUpperCase(),
+            middleware: middleware.regexp.toString()
+          });
+        }
+      });
+    }
+  });
+  
+  res.json({
+    routes,
+    timestamp: new Date().toISOString(),
+    nodeEnv: process.env.NODE_ENV,
+    routeCount: routes.length
+  });
 });
 
 // Serve static assets in production
