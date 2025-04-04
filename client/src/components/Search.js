@@ -110,6 +110,7 @@ const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQu
       let response;
       try {
         // Try the regular endpoint first
+        console.log('Trying primary endpoint...');
         response = await fetch(`${API_URL}/api/ai-chat`, {
           method: 'POST',
           headers: { 
@@ -121,9 +122,9 @@ const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQu
         });
         
         if (!response.ok) {
-          console.log('⚠️ Primary endpoint failed, trying direct fallback endpoint');
-          // If that fails, try the direct endpoint
-          response = await fetch(`${API_URL}/api/direct-ai-chat`, {
+          console.log(`⚠️ Primary endpoint failed with status ${response.status}, trying simple endpoint`);
+          // Try the simple endpoint
+          response = await fetch(`${API_URL}/api/simple-ai-chat`, {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
@@ -134,9 +135,9 @@ const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQu
           });
           
           if (!response.ok) {
-            console.log('⚠️ Direct endpoint also failed, trying echo endpoint');
-            // If both fail, try the basic echo endpoint
-            response = await fetch(`${API_URL}/api/echo`, {
+            console.log(`⚠️ Simple endpoint failed with status ${response.status}, trying direct fallback`);
+            // Try the direct endpoint
+            response = await fetch(`${API_URL}/api/direct-ai-chat`, {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',

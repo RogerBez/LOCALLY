@@ -141,6 +141,23 @@ app.post('/api/direct-ai-chat', async (req, res) => {
   }
 });
 
+// Add a simpler AI chat endpoint that doesn't use aiRoutes
+app.post('/api/simple-ai-chat', (req, res) => {
+  console.log('📩 Simple AI Chat endpoint hit with:', req.body);
+  
+  // Simple response that doesn't depend on Gemini
+  const response = {
+    message: req.body.message ? 
+      `You said: "${req.body.message}". How can I help you find local businesses?` : 
+      "Hello! How can I help you find local businesses?",
+    options: ["Restaurants", "Hotels", "Shopping"],
+    needsConfirmation: false,
+    timestamp: new Date().toISOString()
+  };
+  
+  res.json(response);
+});
+
 // Simple echo endpoint to test basic functionality
 app.post('/api/echo', (req, res) => {
   console.log('📩 Echo endpoint hit with:', req.body);
