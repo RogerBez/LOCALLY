@@ -107,15 +107,50 @@ const Search = ({ onSearch, initialBusinesses = [], isFollowUp = false, searchQu
       
       console.log('🤖 Request payload:', requestBody);
 
-      const response = await fetch(`${API_URL}/api/ai-chat`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestBody),
-        mode: 'cors'
-      });
+      let response;
+      try {
+        // Try the regular endpoint first
+        response = await fetch(`${API_URL}/api/ai-chat`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(requestBody),
+          mode: 'cors'
+        });
+        
+        if (!response.ok) {
+          console.log('⚠️ Primary endpoint failed, trying direct fallback endpoint');
+          // If that fails, try the direct endpoint
+          response = await fetch(`${API_URL}/api/direct-ai-chat`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify(requestBody),
+            mode: 'cors'
+          });
+          
+          if (!response.ok) {
+            console.log('⚠️ Direct endpoint also failed, trying echo endpoint');
+            // If both fail, try the basic echo endpoint
+            response = await fetch(`${API_URL}/api/echo`, {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify(requestBody),
+              mode: 'cors'
+            });
+          }
+        }
+      } catch (fetchError) {
+        console.error('❌ Fetch error:', fetchError);
+        throw new Error(`Network error: ${fetchError.message}`);
+      }
 
       // Remove thinking message
       setConversation(prev => prev.filter(msg => msg.type !== 'thinking'));

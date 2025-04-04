@@ -84,11 +84,6 @@ app.get('/api/env-check', (req, res) => {
   });
 });
 
-// Mount all routes
-app.use('/api/places', placesRoutes);
-app.use('/api', apiRoutes);  // Generic API routes
-app.use('/api', aiRoutes);   // AI-specific routes - this will handle /api/ai-chat
-
 // Fix for route mounting - making sure the routes are mounted correctly
 console.log('🛣️ Mounting routes...');
 try {
@@ -122,6 +117,38 @@ try {
   console.error('❌ Error mounting routes:', error);
   console.error(error.stack);
 }
+
+// Add a DIRECT fallback AI chat endpoint in server.js to bypass aiRoutes
+app.post('/api/direct-ai-chat', async (req, res) => {
+  console.log('📩 DIRECT AI Chat endpoint hit in server.js');
+  
+  try {
+    const { message } = req.body;
+    
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+    
+    // Simple fallback response without using Gemini
+    res.json({
+      message: `I received your message: "${message}". This is a direct server response.`,
+      options: ["Hotels", "Restaurants", "Activities"],
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Direct AI Chat error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Simple echo endpoint to test basic functionality
+app.post('/api/echo', (req, res) => {
+  console.log('📩 Echo endpoint hit with:', req.body);
+  res.json({
+    received: req.body,
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Add this test endpoint to check CORS configuration
 app.get('/api/cors-test', (req, res) => {
