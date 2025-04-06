@@ -107,7 +107,33 @@ app.post('/api/ai-chat', async (req, res) => {
 // Mount all routes
 app.use('/api/places', placesRoutes);
 app.use('/api', apiRoutes); // Generic API routes
-app.use('/api', aiRoutes); // AI-specific routes - this will handle /api/ai-chat
+app.use('/api', aiRoutes); // AI-specific routes
+
+// Add a diagnostic endpoint to list all registered routes
+app.get('/api/routes', (req, res) => {
+  const routes = [];
+  app._router.stack.forEach((middleware) => {
+    if (middleware.route) {
+      // Routes registered directly on the app
+      routes.push({
+        path: middleware.route.path,
+        method: Object.keys(middleware.route.methods)[0].toUpperCase(),
+      });
+    } else if (middleware.name === 'router') {
+      // Routes added via router
+      middleware.handle.stack.forEach((handler) => {
+        if (handler.route) {
+          routes.push({
+            path: handler.route.path,
+            method: Object.keys(handler.route.methods)[0].toUpperCase(),
+          });
+        }
+      });
+    }
+  });
+
+  res.json({ routes });
+});
 
 // Add this test endpoint to check CORS configuration
 app.get('/api/cors-test', (req, res) => {

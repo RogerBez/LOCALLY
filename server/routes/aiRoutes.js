@@ -28,64 +28,41 @@ router.options('/ai-chat', (req, res) => {
 // AI Chat endpoint
 router.post('/ai-chat', async (req, res) => {
   console.log('📩 POST request for /ai-chat with body:', req.body);
-  // Set CORS headers
-  const origin = req.headers.origin;
-  if (origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
-  }
-  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  
+
   // Verify the body is properly parsed
   if (!req.body) {
     console.error('❌ Request body is empty or not parsed');
     return res.status(400).json({
       error: 'Request body is missing',
-      headers: req.headers
+      headers: req.headers,
     });
   }
-  
+
   try {
     const { message, isConfirmation, context } = req.body;
-    
+
     if (!message || typeof message !== 'string') {
       console.error('❌ Invalid message received:', message);
       return res.status(400).json({
         error: 'Message is required and must be a string',
-        received: message
+        received: message,
       });
     }
 
-    // Use try-catch for Gemini service
-    let response;
-    try {
-      // Process the message using Gemini AI service
-      response = await geminiService.processChat(message, {
-        ...context,
-        isConfirmation
-      });
-      console.log('📤 AI Response prepared:', response);
-    } catch (geminiError) {
-      console.error('❌ Gemini service error:', geminiError);
-      // Provide a fallback response instead of failing
-      response = {
-        message: `I'm sorry, I encountered a problem processing your request. Let me provide a simple response instead. How can I help you find local businesses?`,
-        options: ["Restaurants", "Hotels", "Services"],
-        needsConfirmation: false
-      };
-    }
-    
-    // Return the response
+    // Mock response for testing
+    const response = {
+      message: `You said: "${message}". How can I assist you further?`,
+      options: ["Hotels", "Restaurants", "Services"],
+      needsConfirmation: false,
+    };
+
+    console.log('📤 AI Response prepared:', response);
     return res.json(response);
-    
   } catch (error) {
     console.error('❌ AI Chat error:', error);
-    console.error('Stack:', error.stack);
     return res.status(500).json({
       error: 'Server error',
-      message: error.message
+      message: error.message,
     });
   }
 });
