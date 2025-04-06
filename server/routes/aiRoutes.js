@@ -131,6 +131,12 @@ router.get('/debug', (req, res) => {
   });
 });
 
+// Add a test endpoint to confirm the router is mounted
+router.get('/test', (req, res) => {
+  console.log('📩 AI Routes test endpoint hit');
+  res.json({ message: 'AI Routes are working' });
+});
+
 // Explicitly confirm this module loaded
 console.log('✅ aiRoutes.js loaded successfully. Routes registered:');
 router.stack.forEach(r => {
