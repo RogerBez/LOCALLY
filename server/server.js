@@ -49,9 +49,10 @@ app.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
+// Ensure express.json() middleware is applied before routes
 app.use(express.json());
 
-// Debug logging for routes
+// Debug logging for all incoming requests
 app.use((req, res, next) => {
   console.log(`📌 ${req.method} request received for: ${req.url}`);
   next();
@@ -64,44 +65,6 @@ app.get('/api/env-check', (req, res) => {
     environment: process.env.NODE_ENV,
     serverTime: new Date().toISOString(),
   });
-});
-
-// Update direct AI chat endpoint to use Gemini
-app.post('/api/ai-chat', async (req, res) => {
-  // Set CORS headers directly for this route
-  const origin = req.headers.origin;
-  if (origin) res.header('Access-Control-Allow-Origin', origin);
-
-  console.log('📩 Direct AI Chat endpoint hit:', {
-    timestamp: new Date().toISOString(),
-    origin: req.headers.origin || 'no origin',
-  });
-
-  try {
-    const { message, isConfirmation, context } = req.body;
-
-    if (!message || typeof message !== 'string') {
-      return res.status(400).json({
-        error: 'Message is required and must be a string',
-        received: message,
-      });
-    }
-
-    // Process the message using Gemini AI service
-    const response = await geminiService.processChat(message, {
-      ...context,
-      isConfirmation,
-    });
-
-    console.log('📤 Direct AI Response:', response);
-    return res.json(response);
-  } catch (error) {
-    console.error('❌ Direct AI error:', error);
-    return res.status(500).json({
-      error: 'Server error',
-      message: error.message,
-    });
-  }
 });
 
 // Mount all routes

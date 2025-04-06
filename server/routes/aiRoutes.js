@@ -29,41 +29,26 @@ router.options('/ai-chat', (req, res) => {
 router.post('/ai-chat', async (req, res) => {
   console.log('📩 POST request for /ai-chat with body:', req.body);
 
-  // Verify the body is properly parsed
   if (!req.body) {
-    console.error('❌ Request body is empty or not parsed');
-    return res.status(400).json({
-      error: 'Request body is missing',
-      headers: req.headers,
-    });
+    return res.status(400).json({ error: 'Request body is missing' });
   }
 
   try {
-    const { message, isConfirmation, context } = req.body;
+    const { message } = req.body;
 
     if (!message || typeof message !== 'string') {
-      console.error('❌ Invalid message received:', message);
-      return res.status(400).json({
-        error: 'Message is required and must be a string',
-        received: message,
-      });
+      return res.status(400).json({ error: 'Message must be a string' });
     }
 
-    // Mock response for testing
     const response = {
       message: `You said: "${message}". How can I assist you further?`,
       options: ["Hotels", "Restaurants", "Services"],
-      needsConfirmation: false,
     };
 
-    console.log('📤 AI Response prepared:', response);
     return res.json(response);
   } catch (error) {
     console.error('❌ AI Chat error:', error);
-    return res.status(500).json({
-      error: 'Server error',
-      message: error.message,
-    });
+    return res.status(500).json({ error: 'Server error' });
   }
 });
 
