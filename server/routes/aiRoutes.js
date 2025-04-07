@@ -27,9 +27,11 @@ router.options('/ai-chat', (req, res) => {
 
 // AI Chat endpoint
 router.post('/ai-chat', async (req, res) => {
-  console.log('📩 POST request for /ai-chat with body:', req.body);
+  console.log('📩 POST request for /ai-chat received');
+  console.log('Request body:', req.body); // Log the request body
 
   if (!req.body) {
+    console.error('❌ Request body is missing');
     return res.status(400).json({ error: 'Request body is missing' });
   }
 
@@ -37,6 +39,7 @@ router.post('/ai-chat', async (req, res) => {
     const { message } = req.body;
 
     if (!message || typeof message !== 'string') {
+      console.error('❌ Invalid message:', message);
       return res.status(400).json({ error: 'Message must be a string' });
     }
 
@@ -45,6 +48,7 @@ router.post('/ai-chat', async (req, res) => {
       options: ["Hotels", "Restaurants", "Services"],
     };
 
+    console.log('📤 Response:', response);
     return res.json(response);
   } catch (error) {
     console.error('❌ AI Chat error:', error);
