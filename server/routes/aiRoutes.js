@@ -83,6 +83,52 @@ router.post('/ai-chat-backup', async (req, res) => {
   }
 });
 
+// Fallback route for /simple-ai-chat
+router.post('/simple-ai-chat', async (req, res) => {
+  console.log('📩 POST request for /simple-ai-chat with body:', req.body);
+
+  try {
+    const { message } = req.body;
+
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: 'Message must be a string' });
+    }
+
+    const response = {
+      message: `Simple AI received your message: "${message}".`,
+      options: ["Option 1", "Option 2", "Option 3"],
+    };
+
+    return res.json(response);
+  } catch (error) {
+    console.error('❌ Error in /simple-ai-chat:', error);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Fallback route for /direct-ai-chat
+router.post('/direct-ai-chat', async (req, res) => {
+  console.log('📩 POST request for /direct-ai-chat with body:', req.body);
+
+  try {
+    const { message } = req.body;
+
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: 'Message must be a string' });
+    }
+
+    const response = {
+      message: `Direct AI received your message: "${message}".`,
+      options: ["Option A", "Option B", "Option C"],
+    };
+
+    return res.json(response);
+  } catch (error) {
+    console.error('❌ Error in /direct-ai-chat:', error);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Add direct debug endpoint
 router.get('/debug', (req, res) => {
   console.log('📩 GET request for /debug');
