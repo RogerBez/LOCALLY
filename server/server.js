@@ -3,11 +3,14 @@ const cors = require('cors');
 const env = require('./config/environment');
 const placesRoutes = require('./routes/placesRoutes');
 const axios = require('axios');
-const aiRoutes = require('./routes/aiRoutes');
 const apiRoutes = require('./routes/api');
 const path = require('path');
 const geminiService = require('./services/geminiService'); // Get geminiService
+const aiRoutes = require('./routes/aiRoutes'); // Import aiRoutes
 const app = express();
+
+// Ensure this is before route definitions
+app.use(express.json());
 
 // Define allowed origins, including both Render and Vercel domains
 const corsOrigins = env.CORS_ORIGIN
@@ -20,7 +23,6 @@ console.log('🔒 Configured CORS origins:', corsOrigins);
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps, curl, etc)
       if (!origin) {
         console.log('✅ Allowing request with no origin');
         return callback(null, true);
@@ -49,9 +51,6 @@ app.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
-// Ensure express.json() middleware is applied before routes
-app.use(express.json());
-
 // Debug logging for all incoming requests
 app.use((req, res, next) => {
   console.log(`📌 ${req.method} request received for: ${req.url}`);
@@ -70,7 +69,7 @@ app.get('/api/env-check', (req, res) => {
 // Mount all routes
 app.use('/api/places', placesRoutes);
 app.use('/api', apiRoutes); // Generic API routes
-app.use('/api', aiRoutes); // AI-specific routes
+app.use('/api', aiRoutes); // Mount aiRoutes under /api
 
 // Add a diagnostic endpoint to list all registered routes
 app.get('/api/routes', (req, res) => {

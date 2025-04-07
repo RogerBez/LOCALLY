@@ -28,7 +28,8 @@ router.options('/ai-chat', (req, res) => {
 // AI Chat endpoint
 router.post('/ai-chat', async (req, res) => {
   console.log('📩 POST request for /ai-chat received');
-  console.log('Request body:', req.body); // Log the request body
+  console.log('Headers:', req.headers); // Log headers
+  console.log('Raw body:', req.body); // Log raw body
 
   if (!req.body) {
     console.error('❌ Request body is missing');
