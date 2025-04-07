@@ -145,8 +145,10 @@ if (process.env.NODE_ENV === 'production') {
   console.log('Running in development mode');
 }
 
-app.listen(env.PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${env.PORT}`);
+const PORT = env.PORT || 5000; // Default to 5000 if PORT is not set
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
 
 module.exports = app;
