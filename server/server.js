@@ -132,15 +132,12 @@ app.get('/api/maps-test', async (req, res) => {
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
-  // Set static folder
   app.use(express.static(path.join(__dirname, '../client/build')));
 
-  // Any route that doesn't match API routes should serve the React app
+  // Ensure this is after all API routes
   app.get('*', (req, res) => {
     res.sendFile(path.resolve(__dirname, '../client/build', 'index.html'));
   });
-
-  console.log('Running in production mode - serving static files from client/build');
 } else {
   console.log('Running in development mode');
 }
